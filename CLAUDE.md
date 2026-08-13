@@ -11,6 +11,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Treat these two documents as the source of truth for architecture and scope. If code and docs disagree, the docs describe intent — flag the conflict rather than silently picking one.
 
+`DESIGN-cursor.md` (repo root) is a user-supplied design reference (Cursor 마케팅 사이트의 색상/타이포그래피 분석) for the frontend design-system step — not architecture, just visual/tone reference. Load it when doing design-system work (see `design-taste-frontend-v1` rule below), not before.
+
 ## 작업 방식 (사용자 지시사항)
 
 - **답변은 한국어로 한다.** 코드 식별자·주석은 프로젝트의 다른 관례를 따르되(예: 실측 항목명은 한국어), 사용자에게 하는 설명·요약·질문은 한국어로 쓴다.
@@ -19,6 +21,7 @@ Treat these two documents as the source of truth for architecture and scope. If 
 - **함께 개발한다 — 기능을 추가할 때마다 알린다.** 코드는 협업 대상이지 일방적으로 완성해서 던지는 결과물이 아니다. 기능 하나를 추가·변경할 때마다 무엇을 만들었는지 사용자에게 알리고, 사용자가 직접 수정한 부분은 Claude가 검토·평가하고, Claude가 만든 부분은 사용자가 평가하는 상호 리뷰 흐름으로 진행한다. 여러 기능을 한 번에 조용히 구현해서 나중에 몰아서 보고하지 않는다. `superpowers:subagent-driven-development`처럼 태스크를 통째로 서브에이전트에 위임해 진행 상황이 대화 밖에서 처리되는 실행 방식은 이 프로젝트의 협업 방식과 맞지 않으므로 기본으로 쓰지 않는다.
 - **Phase를 마칠 때마다 README.md에 기록을 남긴다.** 스펙 §14/계획 문서가 정의한 Phase 단위(Phase 0: 무신사 파싱 조사, Phase 1: 기반, Phase 2: 옷장 등록, …)로 하나를 완료할 때마다, 그 과정에서 겪은 문제·원인·해결 방법·최종 결과를 README.md에 정리해 추가한다. 커밋 메시지는 "무엇을 바꿨는지"를 남기지만 이 기록은 "무엇이 어려웠고 왜 그렇게 풀었는지"를 남기는 것이 목적이다 — 취업 포트폴리오와 면접에서 그대로 설명 근거로 쓸 수 있도록. Phase가 끝났는데 이 기록을 남기지 않고 다음 Phase로 넘어가지 않는다.
 - **사용자가 직접 해야 하는 작업은 초보자에게 가르치듯 단계별로 안내한다.** Claude가 파일을 고치는 것만으로 끝나지 않는 작업 — 외부 콘솔에서 클릭하기, 키·시크릿 발급받아 붙여넣기, 계정 연동 승인하기, 디자인처럼 사용자의 취향 판단이 필요한 결정 등 — 이 나오면, "알아서 설정하세요"처럼 뭉뚱그리지 않고 어느 화면에서 무엇을 누르는지, 무엇을 복사해 어디에 붙여넣는지, 왜 이 단계가 필요한지까지 구체적으로 짚어가며 안내한다. 대표적으로 이런 작업이 있다: Supabase MCP 서버 연결(Claude가 Supabase 프로젝트에 직접 접근하도록 설정), 구글 로그인 구현에 필요한 Google Cloud Console OAuth 클라이언트 발급과 Supabase Auth 설정, 디자인 시스템(컬러 팔레트 등) 결정. 이런 항목이 계획에서 나오면 먼저 사용자에게 필요성을 알리고 단계별 안내를 제시한다.
+- **작업물을 한 번에 몰아서 커밋하지 않는다.** 기능/작업 단위로 나눠 커밋하고 그때그때 push한다(예: 파서 구현과 RLS 마이그레이션은 서로 다른 커밋). 여러 기능을 조용히 쌓아뒀다가 한 커밋으로 묶어서 던지지 않는다 — 위 "함께 개발한다" 원칙과 같은 이유로, 사용자가 커밋 단위로 진행 상황을 리뷰할 수 있어야 한다.
 
 ## What this is
 
