@@ -1,2 +1,3 @@
 # Claude Code local settings (per-machine permission overrides — not shared)
 .claude/settings.local.json
+DESIGN-cursor.md
