@@ -92,3 +92,40 @@ describe('musinsa_cache', () => {
     expect(data).toEqual([])
   })
 })
+
+describe('analyses', () => {
+  let aliceAnalysisId: string
+
+  beforeAll(async () => {
+    const { data, error } = await alice.client
+      .from('analyses')
+      .insert({
+        garment_id: aliceGarmentId,
+        requester_id: alice.id,
+        verdict: 'buy',
+        fit_score: 0,
+        report: {},
+      })
+      .select('id')
+      .single()
+    if (error) throw error
+    aliceAnalysisId = data.id
+  })
+
+  it('본인 분석 결과는 조회된다', async () => {
+    const { data } = await alice.client.from('analyses').select('id').eq('id', aliceAnalysisId)
+    expect(data?.length).toBe(1)
+  })
+
+  it('남의 분석 결과는 조회되지 않는다', async () => {
+    const { data } = await bob.client.from('analyses').select('id').eq('id', aliceAnalysisId)
+    expect(data).toEqual([])
+  })
+
+  it('requester_id를 위조해 남 이름으로 분석 결과를 남길 수 없다', async () => {
+    const { error } = await bob.client.from('analyses').insert({
+      garment_id: aliceGarmentId, requester_id: alice.id, verdict: 'buy', fit_score: 0, report: {},
+    })
+    expect(error).not.toBeNull()
+  })
+})
