@@ -66,3 +66,71 @@ Next.js 프로젝트 셋업부터 Supabase 스키마·RLS·구글 로그인까�
 **검증**: 실제 상품 페이지의 사이즈 탭 DOM을 브라우저 자바스크립트로 직접 읽어 라벨(`<li>`)·측정값(`<table>`) 구조를 확인한 뒤, 그 구조를 그대로 재현한 테스트 픽스처로 유닛 테스트를 다시 작성해 9개 모두 통과시켰다. 브라우저 자동화로 실제 Ctrl+C/Ctrl+V 클립보드 이벤트까지 재현하려 했으나 페이지가 자동화 드래그 중 응답 없음 상태가 되어 끝까지 재현하지 못했다 — 이 부분은 사용자가 직접 다시 붙여넣어 확인하기로 했다.
 
 **결과**: Phase 2 완료 기준(무신사 링크 → 옵션 선택 → 실측 저장 → Storage 이미지 복사 → 옷장 그리드 표시) 충족. `npm test`(53개) 전부 통과, `npm run build` 타입 오류 없이 성공. Phase 0에서 "확인 안 됨"으로 남겨뒀던 부분(실측표를 실제로 복사했을 때의 클립보드 구조)이 사용자 실사용 중에 드러난 사례 — 사전 조사만으로는 잡을 수 없고 실제 사용 피드백이 필요한 종류의 문제였다.
+
+### Phase 3 — 옷장 상세와 선호도 (2026-08-15)
+
+옷 상세 화면에서 실측을 보고, 별점·핏 태그·착용빈도를 남기고, 삭제할 수 있는 것까지가 목표였다. `PATCH`/`DELETE /api/garments/:id`와 `/wardrobe/[id]` 페이지를 만들었다.
+
+**겪은 문제 — Supabase JS의 `update()`/`delete()`에 `count` 옵션을 잘못된 위치에 넘김**
+
+**문제**: "몇 행이 갱신·삭제됐는지"로 남의 옷(RLS가 막아 0행 처리됨)과 존재하지 않는 옷(404)을 구분하려고 `.update(values).eq('id', id).select('id', { count: 'exact', head: true })`처럼 `select()`에 `count` 옵션을 얹었더니 `npm run build`에서 "Expected 0-1 arguments, but got 2" 타입 에러가 났다.
+
+**원인**: `@supabase/postgrest-js`의 소스(`node_modules/@supabase/postgrest-js/src/PostgrestQueryBuilder.ts`)를 직접 열어보니, `count`는 `update()`/`delete()`/`insert()`/`upsert()` 자신이 두 번째 인자로 받는 옵션이었다 — 뒤에 체이닝하는 `select()`는 그 옵션을 받지 않는다. `select()`에 얹는 건 최초 조회(SELECT) 쿼리에서 count를 요청할 때 쓰는 패턴이라, mutation 뒤에 붙이면 형태가 다르다.
+
+**해결**: `count`를 `update(updates, { count: 'exact' })`, `delete({ count: 'exact' })`처럼 mutation 호출 자체에 옮겼다. `select()` 체이닝 자체가 필요 없어져 코드도 한 줄 줄었다.
+
+**검증**: 브라우저 콘솔에서 실제 로그인 세션으로 PATCH(선호도 수정 성공/404/이미 owned인 옷 재승격 차단)와 DELETE(성공/404)를 각각 호출해 응답 코드를 확인했다. 상세 화면에서는 별점·핏·착용빈도 클릭 → 즉시 저장 → 새로고침 유지, 삭제 확인 → `/wardrobe`로 리다이렉트 → 그리드에서 사라짐까지 실제로 눈으로 확인했다.
+
+**결과**: Phase 3 완료. `npm test`(84개) 전부 통과.
+
+### Phase 4 — 핏 판단 엔진 (2026-08-15)
+
+`lib/fit/rules.ts`(허용편차·심각도·가중치 상수), `lib/fit/profile.ts`(선호 실측 범위 클러스터링), `lib/fit/engine.ts`(편차 채점), `lib/verdict.ts`(최종 판정)를 AI 없이 순수 함수로 만들고, `/api/analyze`·`/analyze`·`/cart` 화면까지 붙여 "AI 없이 이미 쓸 만한 제품"(스펙 §14)을 완성하는 게 목표였다.
+
+**겪은 문제 — 직접 만든 테스트의 기대값이 스펙 공식을 잘못 계산함**
+
+**문제**: `scoreDeviation`(편차 채점) 테스트 두 개가 실패했다. "범위 밖으로 2cm 초과했으니 경고 점수" 같은 케이스에서 기대한 점수가 실제 결과와 달랐다.
+
+**원인**: 스펙의 편차 공식은 `[lo, hi]`(선호 범위) 자체가 아니라 `[lo - t, hi + t]`(허용 편차만큼 넓힌 구간) 밖으로 벗어난 만큼을 `excess`로 잡는다. 테스트를 짤 때 이 확장 구간을 빼먹고 원래 범위 `[lo, hi]` 기준으로 "2cm 초과"를 계산해 값을 골랐다 — 실제로는 허용 편차(예: 총장 t=3.0)만큼 이미 여유가 있어서, 그 값은 여전히 허용구간 안이라 0점이 나오는 게 정답이었다. 코드(`lib/fit/engine.ts`)가 틀린 게 아니라 테스트 예시 수치가 스펙 공식을 잘못 대입한 경우였다.
+
+**해결**: 허용구간 `[lo-t, hi+t]`을 먼저 계산한 뒤 그 밖으로 벗어나는 값을 역산해서 테스트 수치를 다시 골랐다(경고: 허용구간 밖 2cm, 심각: 허용구간 밖 5cm). 계획 문서의 테스트 예시 코드도 같은 실수가 있어 함께 고쳤다.
+
+**겪은 문제 — Supabase JS의 `.returns<T>()`가 deprecated**
+
+**문제**: `lib/fit/profile.ts`의 DB 집계 쿼리에 `.returns<GarmentRow[]>()`를 썼더니 에디터에 deprecated 경고가 떴다(빌드는 통과하지만).
+
+**해결**: 같은 라이브러리 소스에서 `@deprecated Use overrideTypes<yourType, { merge: false }>() method` 안내를 확인하고 `.overrideTypes<GarmentRow[], { merge: false }>()`로 교체했다. `/cart` 화면의 비슷한 캐스팅도 처음부터 이 방식으로 맞춰 작성했다.
+
+**검증**: `lib/fit/rules.ts`·`profile.ts`(클러스터링+선호 프로필)·`engine.ts`(채점)·`verdict.ts`를 단위 테스트로 촘촘히 검증(스펙 §9의 크롭/오버핏 다중 범위 예시, 회피 신호, 치명 위반, 데이터 부족 분기 포함)한 뒤, `/api/garments`가 옷장/장바구니 등록 로직을 공유하도록 리팩터(`lib/garments/register.ts`)했다. 실제 무신사 링크로 `/analyze`에서 판단 → 배지·"데이터 부족" 안내 확인 → `/cart`에서 방금 분석한 옷 확인 → "샀어요" → `/wardrobe`로 이동까지 브라우저에서 전체 플로우를 검증했다.
+
+**결과**: Phase 4 완료 기준(AI 없이 결정론적 리포트 표시) 충족. `npm test`(87개) 전부 통과.
+
+### Phase 5 — Gemini 연동 (2026-08-15)
+
+등록 시 이미지 1장으로 스타일 태깅(`lib/ai/tagger.ts`), 편차 리포트+태그를 Gemini에 보내 매칭 심각도·피드백 문장을 받는 것(`lib/ai/advisor.ts`)까지가 목표였다. **최종 판정은 항상 코드가 계산하고 Gemini는 서술만 한다**는 원칙(스펙 §9-10)을 그대로 지켰다.
+
+**겪은 문제 — 스펙에 명시된 `gemini-2.5-flash`가 신규 발급 API 키에서 404**
+
+**문제**: `GEMINI_API_KEY`를 새로 발급받아 태깅을 처음 실행하자 `ApiError: This model models/gemini-2.5-flash is no longer available to new users.`가 났다.
+
+**원인**: 스펙 작성 시점(2026-08-13)에는 유효했던 모델이, 그 사이 Google이 신규 사용자 대상 접근을 막은 것으로 보인다. `client.models.list()`로 이 API 키가 실제로 쓸 수 있는 모델 목록을 직접 조회해보니 `gemini-2.5-flash`는 카탈로그에는 여전히 나열되지만(`generateContent` 호출 시점에만 별도로 막힘), `gemini-3.5-flash`·`gemini-3.7-flash`·`gemini-flash-latest` 등 더 최신 flash 계열은 정상 호출됐다.
+
+**해결**: 사용자에게 상황을 알리고 대안(구체적 버전 고정 vs `gemini-flash-latest` 별칭)을 물어, `gemini-3.5-flash`로 교체하기로 했다. `CLAUDE.md`·설계 스펙(§4, §10)·계획 2 문서의 모델명을 전부 갱신해 실제 코드와 문서가 어긋나지 않게 했다. `/api/analyze`에서는 모델명을 문자열로 반복해서 하드코딩하지 않고 `GEMINI_MODEL` 상수를 참조하도록 해, 다음에 또 모델을 바꿔야 할 때 한 곳만 고치면 되게 했다.
+
+**겪은 문제 2 — Gemini `responseSchema`는 표준 JSON Schema가 아니다**
+
+**문제**: 구조화 출력 스키마의 `type` 필드에 JSON Schema 관례대로 `'object'`/`'string'`(소문자)을 썼는데, TypeScript는 통과했지만(`SchemaUnion = Schema | unknown`이라 타입 체크가 사실상 무력화됨) 실제로 스키마가 적용되는지 의심스러웠다.
+
+**해결**: SDK 타입 정의(`node_modules/@google/genai/dist/genai.d.ts`)에서 `Type` enum을 확인했다 — Gemini의 스키마는 `Type.OBJECT`/`Type.STRING`처럼 대문자 상수를 쓴다. `lib/ai/tagger.ts`·`lib/ai/advisor.ts` 둘 다 `Type` enum으로 작성해 실제로 정상 동작하는 것까지 확인했다.
+
+**겪은 문제 3 — Vitest mock에서 연속 실패(재시도) 테스트가 잡히는 예외를 unhandled rejection으로 오탐지**
+
+**문제**: "한 번 실패하면 재시도하고, 재시도까지 실패하면 null" 테스트에서 `generateContentMock.mockRejectedValue(...)`(또는 `mockImplementation(() => Promise.reject(...))`)을 쓰면, 실제로는 `try/catch`로 잡히는 에러인데도 테스트가 `Error: timeout`으로 실패했다.
+
+**원인**: 최소 재현으로 좁혀보니 `vi.mock()` 팩토리로 대체한 모듈을 통해 같은 mock 함수를 연속으로 두 번 호출·reject시키는 조합에서만 재현됐다 — `vi.fn()`을 직접 함수 인자로 넘기는 단순한 경우는 문제없었다. Vitest의 mock 계측(호출 결과 기록)과 이 조합이 상호작용해 실제로는 처리되는 rejection을 처리 안 된 것으로 오탐지하는 것으로 보인다.
+
+**해결**: `mockRejectedValueOnce(...).mockRejectedValueOnce(...)`처럼 호출 횟수만큼 순서대로 등록하는 방식으로 바꾸니 정상 통과했다. `tests/ai/advisor.test.ts`와 계획 문서에 원인과 함께 남겨, 다음에 같은 패턴(vi.mock + 연속 reject)을 쓸 때 같은 삽질을 반복하지 않게 했다.
+
+**검증**: 등록 시 실제 무신사 상품 이미지로 태깅을 실행해 `ai_tags`가 (카테고리·색상·톤·패턴·스타일 키워드·격식도·계절) 구조로 정확히 채워지는 것을 확인했다. `/api/analyze`에서는 정상 키로 호출해 4개 피드백 문장(요약·사이즈·매칭·가격)이 자연스러운 한국어로 나오고 `analyses.feedback`·`model`·`prompt_snapshot`이 채워지는 것을 확인한 뒤, `GEMINI_API_KEY`를 일부러 무효한 값으로 바꿔 같은 요청을 다시 보내 `feedback: null`·`fit_score`만으로 판정되는 폴백 경로(스펙 §12)까지 실제로 재현해 확인했다. 테스트로 생성한 옷·분석 결과는 검증 후 정리했다.
+
+**결과**: 계획 2(선호도·핏 판단·Gemini·장바구니, 스펙 Phase 3~5) 완료. `npm test`(93개) 전부 통과, `npm run build` 타입 오류 없이 성공.
