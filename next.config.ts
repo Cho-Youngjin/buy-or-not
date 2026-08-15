@@ -1,7 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  images: {
+    // 무신사 CDN 이미지(등록 전 미리보기)와 Storage에 복사한 사본(lib/storage.ts) 둘 다 <Image />로 표시한다.
+    remotePatterns: [
+      { protocol: "https", hostname: "*.supabase.co", pathname: "/storage/v1/object/public/**" },
+      { protocol: "https", hostname: "image.msscdn.net" },
+    ],
+  },
 };
 
 export default nextConfig;
