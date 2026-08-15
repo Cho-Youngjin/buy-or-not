@@ -40,6 +40,7 @@ buy-or-not/
 ├── components/
 │   ├── LoginButton.tsx                  구글 로그인
 │   ├── LinkInputBar.tsx                 링크 붙여넣기
+│   ├── PasteSizeTableField.tsx          사이즈표 붙여넣기 + 파싱 미리보기
 │   ├── GarmentForm.tsx                  옵션 선택 + 실패 필드 수동 입력
 │   └── GarmentCard.tsx                  옷장 카드
 ├── lib/
@@ -49,21 +50,23 @@ buy-or-not/
 │   │   ├── server.ts                    세션 기반 서버 클라이언트 (RLS 적용)
 │   │   └── admin.ts                     service_role 클라이언트 (캐시·스토리지 전용)
 │   └── musinsa/
-│       ├── types.ts                     FieldResult, ParseResult
+│       ├── types.ts                     FieldResult, ParseResult, AUTO_PARSED_FIELDS
 │       ├── url.ts                       goods_no 추출
 │       ├── measurements.ts              실측 항목명 정규화
-│       ├── parser.ts                    HTML → ParseResult (순수 함수)
+│       ├── parser.ts                    HTML(__NEXT_DATA__) → ParseResult (순수 함수)
+│       ├── pasteSizeTable.ts            붙여넣은 텍스트 → SizeTable (순수 함수)
 │       ├── fetcher.ts                   네트워크 계층 (timeout·재시도)
-│       └── cache.ts                     musinsa_cache 읽기/쓰기
+│       └── cache.ts                     musinsa_cache 읽기/쓰기/병합
 ├── supabase/migrations/
 │   ├── 0001_init.sql                    확장·enum·테이블·인덱스
 │   ├── 0002_rls.sql                     RLS 정책
 │   └── 0003_profile_trigger.sql         가입 시 profiles 자동 생성
 ├── tests/
-│   ├── fixtures/musinsa/                Phase 0에서 저장한 실제 HTML
+│   ├── fixtures/musinsa/                Phase 0에서 저장한 __NEXT_DATA__ 스니펫
 │   ├── musinsa/url.test.ts
 │   ├── musinsa/measurements.test.ts
 │   ├── musinsa/parser.test.ts
+│   ├── musinsa/pasteSizeTable.test.ts
 │   └── rls.test.ts
 ├── docs/superpowers/notes/
 │   └── phase0-musinsa-findings.md       Phase 0 조사 결과
@@ -567,21 +570,21 @@ git commit -m "feat: normalize musinsa measurement key aliases"
 
 HTML 문자열을 받아 `ParseResult`를 돌려주는 **순수 함수**다. 네트워크를 모르므로 fixture만으로 테스트된다. 필드별로 성공/실패를 따로 담아 부분 성공을 표현한다.
 
+**Phase 0 조사 결과(`docs/superpowers/notes/phase0-musinsa-findings.md`) 반영**: JSON-LD는 존재하지 않는다. 상품명·브랜드·가격·대표이미지·카테고리는 `<script id="__NEXT_DATA__">` 안 `props.pageProps.dehydratedState.queries`에서 `queryKey`가 `["Detail", <숫자>]`인 항목의 `state.data.data`로 뽑는다. `options`(색상·사이즈)와 `sizeTable`(실측표)은 이 JSON에도, 정적 HTML 어디에도 없다 — **처음부터 자동 파싱을 시도하지 않고 항상 실패로 둔다.** `sizeTable`은 Task 5-1(붙여넣기 파서)로, `options`는 §8 필드별 수동 입력 폼으로 넘어간다.
+
 **Files:**
 - Create: `lib/musinsa/types.ts`
 - Create: `lib/musinsa/parser.ts`
 - Test: `tests/musinsa/parser.test.ts`
-- Read: `docs/superpowers/notes/phase0-musinsa-findings.md`
 
 **Interfaces:**
-- Consumes: `normalizeMeasurementKey`, `isStandardKey` (Task 4), `Category` (Task 3)
+- Consumes: `Category` (Task 3)
 - Produces:
   - `FieldResult<T> = { ok: true; value: T } | { ok: false; reason: string }`
   - `SizeTable = Record<string, Record<string, number>>`
   - `ParseResult`, `ParsedFields`
+  - `PARSEABLE_FIELDS`(7개, 폼 렌더링용), `AUTO_PARSED_FIELDS`(5개, `parse_mode` 계산용)
   - `parseProductHtml(html: string, goodsNo: string): ParseResult`
-
-**시작 전 확인:** Task 1의 조사 노트를 읽는다. 조사 결과가 "내부 API 필요"였다면 아래 `extractSizeTable`·`extractOptions`의 입력이 HTML이 아니라 JSON이 되므로, 해당 함수만 JSON 경로로 바꾸고 나머지 구조와 테스트 형태는 그대로 유지한다.
 
 - [ ] **Step 1: 타입 정의 작성**
 
@@ -617,12 +620,21 @@ export type ParseResult = {
   fields: ParsedFields
 }
 
-/** 수동 입력 폴백 화면이 다루는 필드 목록. parse_mode 계산에도 쓰인다. */
+/** 수동 입력 폴백 화면이 다루는 필드 전체 목록. */
 export const PARSEABLE_FIELDS = [
   'name', 'brand', 'price', 'imageUrl', 'category', 'options', 'sizeTable',
 ] as const
 
 export type ParseableField = (typeof PARSEABLE_FIELDS)[number]
+
+/**
+ * parse_mode 계산에 쓰는 필드. options·sizeTable은 제외한다 —
+ * 이 둘은 처음부터 자동 파싱을 시도하지 않으므로 실패가 항상 정상이고,
+ * 포함시키면 모든 옷이 영원히 'manual'로 찍혀 "무신사 개편 감지" 지표가 무의미해진다.
+ */
+export const AUTO_PARSED_FIELDS = [
+  'name', 'brand', 'price', 'imageUrl', 'category',
+] as const
 
 export function ok<T>(value: T): FieldResult<T> {
   return { ok: true, value }
@@ -635,7 +647,7 @@ export function fail<T>(reason: string): FieldResult<T> {
 
 - [ ] **Step 2: 실패하는 테스트 작성**
 
-`tests/musinsa/parser.test.ts`. fixture는 Task 1에서 저장한 실제 HTML이다. **기대값은 fixture의 실제 상품 정보로 바꿔 쓴다.**
+`tests/musinsa/parser.test.ts`. fixture는 Task 1에서 저장한 실제 상품 데이터를 담고 있다(`docs/superpowers/notes/phase0-musinsa-findings.md`에 조사 당시 값이 기록되어 있다). **fixture를 새로 받으면 아래 기대값도 그 상품 정보로 바꿔 쓴다.**
 
 ```ts
 import { describe, it, expect } from 'vitest'
@@ -648,55 +660,58 @@ function fixture(name: string): string {
 }
 
 describe('parseProductHtml — 상의', () => {
-  const result = parseProductHtml(fixture('top.html'), '1234567')
+  const result = parseProductHtml(fixture('top.html'), '6593921')
 
   it('상품번호를 그대로 담는다', () => {
-    expect(result.goodsNo).toBe('1234567')
+    expect(result.goodsNo).toBe('6593921')
   })
 
   it('상품명을 뽑는다', () => {
-    expect(result.fields.name.ok).toBe(true)
-    if (result.fields.name.ok) {
-      expect(result.fields.name.value.length).toBeGreaterThan(0)
-    }
+    expect(result.fields.name).toEqual({ ok: true, value: '롤업 슬리브 크롭 반팔 티셔츠 블랙' })
   })
 
-  it('가격을 숫자로 뽑는다', () => {
-    expect(result.fields.price.ok).toBe(true)
-    if (result.fields.price.ok) {
-      expect(result.fields.price.value).toBeGreaterThan(0)
-      expect(Number.isInteger(result.fields.price.value)).toBe(true)
-    }
+  it('브랜드는 한글 표시명을 뽑는다', () => {
+    expect(result.fields.brand).toEqual({ ok: true, value: '언더오프' })
   })
 
-  it('대표 이미지 URL을 뽑는다', () => {
+  it('가격을 판매가로 뽑는다', () => {
+    expect(result.fields.price).toEqual({ ok: true, value: 19900 })
+  })
+
+  it('대표 이미지를 절대 URL로 뽑는다', () => {
     expect(result.fields.imageUrl.ok).toBe(true)
     if (result.fields.imageUrl.ok) {
-      expect(result.fields.imageUrl.value).toMatch(/^https?:\/\//)
+      expect(result.fields.imageUrl.value).toMatch(/^https:\/\/image\.msscdn\.net\//)
     }
   })
 
-  it('사이즈표에서 표준 항목을 뽑는다', () => {
-    expect(result.fields.sizeTable.ok).toBe(true)
-    if (result.fields.sizeTable.ok) {
-      const sizes = Object.keys(result.fields.sizeTable.value)
-      expect(sizes.length).toBeGreaterThan(0)
-      const firstRow = result.fields.sizeTable.value[sizes[0]]
-      expect(Object.keys(firstRow)).toContain('총장')
-    }
+  it('카테고리를 top으로 판정한다', () => {
+    expect(result.fields.category).toEqual({ ok: true, value: 'top' })
+  })
+
+  it('옵션과 실측표는 처음부터 시도하지 않고 실패로 둔다', () => {
+    expect(result.fields.options.ok).toBe(false)
+    expect(result.fields.sizeTable.ok).toBe(false)
   })
 })
 
 describe('parseProductHtml — 하의', () => {
-  const result = parseProductHtml(fixture('bottom.html'), '7654321')
+  const result = parseProductHtml(fixture('bottom.html'), '6815858')
 
-  it('하의 실측 항목을 뽑는다', () => {
-    expect(result.fields.sizeTable.ok).toBe(true)
-    if (result.fields.sizeTable.ok) {
-      const sizes = Object.keys(result.fields.sizeTable.value)
-      const firstRow = result.fields.sizeTable.value[sizes[0]]
-      expect(Object.keys(firstRow)).toContain('허리단면')
-    }
+  it('바지 카테고리를 bottom으로 매핑한다', () => {
+    expect(result.fields.category).toEqual({ ok: true, value: 'bottom' })
+  })
+
+  it('브랜드 한글 표시명을 뽑는다', () => {
+    expect(result.fields.brand).toEqual({ ok: true, value: '위캔더스' })
+  })
+})
+
+describe('parseProductHtml — 아우터', () => {
+  const result = parseProductHtml(fixture('outer.html'), '2087860')
+
+  it('아우터 카테고리를 outer로 매핑한다', () => {
+    expect(result.fields.category).toEqual({ ok: true, value: 'outer' })
   })
 })
 
@@ -710,22 +725,15 @@ describe('parseProductHtml — 견고성', () => {
     }
   })
 
-  it('깨진 JSON-LD가 있어도 예외를 던지지 않는다', () => {
-    const html = '<html><script type="application/ld+json">{not json</script></html>'
+  it('__NEXT_DATA__가 깨진 JSON이어도 예외를 던지지 않는다', () => {
+    const html = '<html><script id="__NEXT_DATA__" type="application/json">{not json</script></html>'
     expect(() => parseProductHtml(html, '1')).not.toThrow()
   })
 
-  it('사이즈표에 숫자가 아닌 셀이 섞여도 그 항목만 건너뛴다', () => {
-    const html = `
-      <table>
-        <tr><th>사이즈</th><th>총장</th><th>가슴단면</th></tr>
-        <tr><td>M</td><td>70</td><td>-</td></tr>
-      </table>`
+  it('Detail 쿼리가 없어도 예외를 던지지 않는다', () => {
+    const html = '<html><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"dehydratedState":{"queries":[]}}}}</script></html>'
     const result = parseProductHtml(html, '1')
-    expect(result.fields.sizeTable.ok).toBe(true)
-    if (result.fields.sizeTable.ok) {
-      expect(result.fields.sizeTable.value['M']).toEqual({ 총장: 70 })
-    }
+    expect(result.fields.name.ok).toBe(false)
   })
 })
 ```
@@ -742,159 +750,101 @@ Expected: FAIL — `parseProductHtml` 모듈 없음
 ```ts
 import * as cheerio from 'cheerio'
 import type { Category } from '@/lib/types'
-import { normalizeMeasurementKey, isStandardKey } from '@/lib/musinsa/measurements'
-import {
-  ok, fail,
-  type FieldResult, type ParseResult, type ProductOptions, type SizeTable,
-} from '@/lib/musinsa/types'
+import { ok, fail, type FieldResult, type ParseResult } from '@/lib/musinsa/types'
 
-type JsonLdProduct = {
-  '@type'?: string
-  name?: string
-  image?: string | string[]
-  brand?: { name?: string } | string
-  offers?: { price?: string | number } | Array<{ price?: string | number }>
+type DetailData = {
+  goodsNm?: string
+  brand?: string
+  brandInfo?: { brandName?: string }
+  goodsPrice?: { salePrice?: number }
+  thumbnailImageUrl?: string
+  category?: { categoryDepth1Name?: string }
 }
 
-/** 무신사 카테고리 문자열 → 표준 카테고리. 판정 불가 시 null. */
-const CATEGORY_HINTS: Array<[RegExp, Category]> = [
-  [/아우터|코트|자켓|재킷|점퍼|패딩/, 'outer'],
-  [/상의|티셔츠|셔츠|맨투맨|니트|후드/, 'top'],
-  [/바지|팬츠|데님|슬랙스|하의|스커트/, 'bottom'],
-  [/신발|스니커즈|운동화|부츠|샌들|슬리퍼/, 'shoes'],
-  [/가방|모자|양말|액세서리|주얼리/, 'acc'],
-]
+/**
+ * 무신사 대분류 이름 → 표준 카테고리.
+ * '상의'·'바지'·'아우터'는 Phase 0에서 실제 상품으로 확인됨.
+ * '신발'·'가방'·'패션잡화'는 확인되지 않은 추정값 — Task 5 실행 시 실제 상품으로 검증한다.
+ */
+const MUSINSA_CATEGORY_MAP: Record<string, Category> = {
+  상의: 'top',
+  바지: 'bottom',
+  아우터: 'outer',
+  신발: 'shoes',
+  가방: 'acc',
+  패션잡화: 'acc',
+}
 
 export function parseProductHtml(html: string, goodsNo: string): ParseResult {
-  const $ = cheerio.load(html)
-  const ld = readJsonLdProduct($)
+  const detail = readDetailData(html)
 
   return {
     goodsNo,
     fields: {
-      name: extractName(ld),
-      brand: extractBrand(ld),
-      price: extractPrice(ld),
-      imageUrl: extractImage(ld),
-      category: extractCategory($),
-      options: extractOptions($),
-      sizeTable: extractSizeTable($),
+      name: extractName(detail),
+      brand: extractBrand(detail),
+      price: extractPrice(detail),
+      imageUrl: extractImage(detail),
+      category: extractCategory(detail),
+      // Phase 0 조사 결과 둘 다 정적 파싱 경로가 없다 — 시도하지 않는다.
+      options: fail('색상·사이즈 옵션은 자동으로 가져오지 않습니다'),
+      sizeTable: fail('실측표는 자동으로 가져오지 않습니다 — 붙여넣기로 채워주세요'),
     },
   }
 }
 
-function readJsonLdProduct($: cheerio.CheerioAPI): JsonLdProduct | null {
-  const nodes = $('script[type="application/ld+json"]').toArray()
-  for (const node of nodes) {
-    const raw = $(node).contents().text()
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(raw)
-    } catch {
-      continue // 깨진 JSON-LD는 조용히 건너뛴다
-    }
-    const candidates = Array.isArray(parsed) ? parsed : [parsed]
-    for (const candidate of candidates) {
-      const product = candidate as JsonLdProduct
-      if (product && product['@type'] === 'Product') return product
-    }
+function readDetailData(html: string): DetailData | null {
+  const $ = cheerio.load(html)
+  const raw = $('script#__NEXT_DATA__').contents().text()
+  if (!raw) return null
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return null // 깨진 __NEXT_DATA__는 조용히 건너뛴다
   }
-  return null
+
+  const queries = (parsed as Record<string, any>)?.props?.pageProps?.dehydratedState?.queries
+  if (!Array.isArray(queries)) return null
+
+  const detailQuery = queries.find(
+    (q) => Array.isArray(q?.queryKey) && q.queryKey[0] === 'Detail' && typeof q.queryKey[1] === 'number',
+  )
+  return detailQuery?.state?.data?.data ?? null
 }
 
-function extractName(ld: JsonLdProduct | null): FieldResult<string> {
-  const name = ld?.name?.trim()
+function extractName(detail: DetailData | null): FieldResult<string> {
+  const name = detail?.goodsNm?.trim()
   return name ? ok(name) : fail('상품명을 찾지 못했습니다')
 }
 
-function extractBrand(ld: JsonLdProduct | null): FieldResult<string> {
-  const brand = typeof ld?.brand === 'string' ? ld.brand : ld?.brand?.name
-  const trimmed = brand?.trim()
-  return trimmed ? ok(trimmed) : fail('브랜드를 찾지 못했습니다')
+function extractBrand(detail: DetailData | null): FieldResult<string> {
+  // 한글 표시명(brandInfo.brandName)을 우선한다 — brand는 내부 브랜드 코드(예: 'nmx')다.
+  const brand = detail?.brandInfo?.brandName?.trim() || detail?.brand?.trim()
+  return brand ? ok(brand) : fail('브랜드를 찾지 못했습니다')
 }
 
-function extractPrice(ld: JsonLdProduct | null): FieldResult<number> {
-  const offers = Array.isArray(ld?.offers) ? ld?.offers[0] : ld?.offers
-  const raw = offers?.price
-  if (raw === undefined || raw === null) return fail('가격을 찾지 못했습니다')
-  const price = Math.round(Number(String(raw).replace(/[^\d.]/g, '')))
-  if (!Number.isFinite(price) || price <= 0) return fail('가격을 숫자로 읽지 못했습니다')
-  return ok(price)
+function extractPrice(detail: DetailData | null): FieldResult<number> {
+  const price = detail?.goodsPrice?.salePrice
+  if (typeof price !== 'number' || !Number.isFinite(price) || price <= 0) {
+    return fail('가격을 찾지 못했습니다')
+  }
+  return ok(Math.round(price))
 }
 
-function extractImage(ld: JsonLdProduct | null): FieldResult<string> {
-  const image = Array.isArray(ld?.image) ? ld?.image[0] : ld?.image
-  if (!image) return fail('상품 이미지를 찾지 못했습니다')
-  const absolute = image.startsWith('//') ? `https:${image}` : image
-  if (!/^https?:\/\//.test(absolute)) return fail('이미지 주소 형식을 읽지 못했습니다')
+function extractImage(detail: DetailData | null): FieldResult<string> {
+  const path = detail?.thumbnailImageUrl?.trim()
+  if (!path) return fail('상품 이미지를 찾지 못했습니다')
+  const absolute = path.startsWith('http') ? path : `https://image.msscdn.net${path}`
   return ok(absolute)
 }
 
-function extractCategory($: cheerio.CheerioAPI): FieldResult<Category> {
-  // 빵부스러기(breadcrumb) 텍스트를 훑어 카테고리 힌트를 찾는다.
-  const crumbs = $('[class*="breadcrumb"] a, nav a').toArray()
-    .map((el) => $(el).text().trim())
-    .join(' ')
-  for (const [pattern, category] of CATEGORY_HINTS) {
-    if (pattern.test(crumbs)) return ok(category)
-  }
-  return fail('카테고리를 판정하지 못했습니다')
-}
-
-function extractOptions($: cheerio.CheerioAPI): FieldResult<ProductOptions> {
-  const colors = uniqueTexts($, '[data-option-type="color"] option, select[name*="color"] option')
-  const sizes = uniqueTexts($, '[data-option-type="size"] option, select[name*="size"] option')
-  if (colors.length === 0 && sizes.length === 0) {
-    return fail('색상·사이즈 옵션을 찾지 못했습니다')
-  }
-  return ok({ colors, sizes })
-}
-
-function uniqueTexts($: cheerio.CheerioAPI, selector: string): string[] {
-  const texts = $(selector).toArray()
-    .map((el) => $(el).text().trim())
-    .filter((t) => t.length > 0 && !/선택|choose/i.test(t))
-  return [...new Set(texts)]
-}
-
-function extractSizeTable($: cheerio.CheerioAPI): FieldResult<SizeTable> {
-  for (const node of $('table').toArray()) {
-    const $table = $(node)
-    const headerCells = $table.find('thead th, thead td').toArray()
-    const headers = (headerCells.length > 0
-      ? headerCells
-      : $table.find('tr').first().find('th, td').toArray()
-    ).map((el) => $(el).text().trim())
-
-    if (headers.length < 2) continue
-
-    // 첫 칸은 사이즈 라벨, 나머지가 실측 항목이다.
-    const keys = headers.slice(1).map(normalizeMeasurementKey)
-    if (!keys.some(isStandardKey)) continue
-
-    const bodyRows = $table.find('tbody tr').toArray()
-    const rows = bodyRows.length > 0 ? bodyRows : $table.find('tr').slice(1).toArray()
-
-    const table: SizeTable = {}
-    for (const row of rows) {
-      const cells = $(row).find('th, td').toArray().map((el) => $(el).text().trim())
-      if (cells.length < 2) continue
-      const sizeLabel = cells[0]
-      if (!sizeLabel) continue
-
-      const entry: Record<string, number> = {}
-      keys.forEach((key, index) => {
-        const cell = cells[index + 1]
-        if (!cell) return
-        const value = Number(cell.replace(/[^\d.]/g, ''))
-        if (Number.isFinite(value) && value > 0) entry[key] = value
-      })
-      if (Object.keys(entry).length > 0) table[sizeLabel] = entry
-    }
-
-    if (Object.keys(table).length > 0) return ok(table)
-  }
-  return fail('사이즈 실측표를 찾지 못했습니다')
+function extractCategory(detail: DetailData | null): FieldResult<Category> {
+  const depth1 = detail?.category?.categoryDepth1Name?.trim()
+  if (!depth1) return fail('카테고리를 찾지 못했습니다')
+  const category = MUSINSA_CATEGORY_MAP[depth1]
+  return category ? ok(category) : fail(`알 수 없는 카테고리: ${depth1}`)
 }
 ```
 
@@ -903,13 +853,201 @@ function extractSizeTable($: cheerio.CheerioAPI): FieldResult<SizeTable> {
 Run: `npm test -- tests/musinsa/parser.test.ts`
 Expected: PASS
 
-fixture 기반 테스트가 실패하면 **fixture의 실제 HTML을 열어 선택자를 맞춘다.** 조사 노트의 "추출 방법" 열이 근거다. 견고성 테스트 3개는 무조건 통과해야 한다.
+fixture 기반 테스트가 실패하면 **fixture의 `__NEXT_DATA__` 블록을 직접 열어 실제 값과 기대값이 맞는지 비교한다.** 견고성 테스트 3개는 무조건 통과해야 한다.
 
 - [ ] **Step 6: 커밋**
 
 ```bash
 git add lib/musinsa/types.ts lib/musinsa/parser.ts tests/musinsa/parser.test.ts
 git commit -m "feat: parse musinsa product page into field-level result"
+```
+
+---
+
+### Task 5-1: 사이즈표 붙여넣기 파서
+
+스펙 §8-1. 사용자가 무신사 "사이즈" 탭의 표를 통째로 복사해서 붙여넣으면, 클립보드 HTML(정확)이나 일반 텍스트(폴백)를 `SizeTable`로 바꾸는 **순수 함수**다. 브라우저 `clipboardData`와 무관하게 문자열만 받으므로 이 함수 자체는 네트워크·DOM 요소를 모른다 — 실제 붙여넣기 이벤트 연결은 Task 10에서 한다.
+
+**Files:**
+- Create: `lib/musinsa/pasteSizeTable.ts`
+- Test: `tests/musinsa/pasteSizeTable.test.ts`
+
+**Interfaces:**
+- Consumes: `normalizeMeasurementKey`, `isStandardKey` (Task 4), `SizeTable` (Task 5)
+- Produces:
+  - `PasteParseResult = { table: SizeTable; unrecognizedHeaders: string[] }`
+  - `parsePastedSizeTable(html: string | null, plainText: string): PasteParseResult`
+
+- [ ] **Step 1: 실패하는 테스트 작성**
+
+`tests/musinsa/pasteSizeTable.test.ts`. 테스트 데이터는 Phase 0에서 실제로 확인한 표 형태(무신사 "사이즈" 탭 — cm 헤더, "내 사이즈" 입력행, M/L/XL 행)를 그대로 쓴다.
+
+```ts
+import { describe, it, expect } from 'vitest'
+import { parsePastedSizeTable } from '@/lib/musinsa/pasteSizeTable'
+
+const PLAIN_TEXT = [
+  'cm\t총장\t어깨너비\t가슴단면\t소매길이',
+  '내 사이즈\t\t사이즈를 직접 입력해주세요\t\t',
+  'M\t61\t50\t55\t19',
+  'L\t63\t52\t57\t20',
+  'XL\t65\t54\t59\t21',
+].join('\n')
+
+const HTML_TABLE = `
+<table>
+  <tr><th>cm</th><th>총장</th><th>어깨너비</th><th>가슴단면</th><th>소매길이</th></tr>
+  <tr><td>내 사이즈</td><td></td><td>사이즈를 직접 입력해주세요</td><td></td><td></td></tr>
+  <tr><td>M</td><td>61</td><td>50</td><td>55</td><td>19</td></tr>
+  <tr><td>L</td><td>63</td><td>52</td><td>57</td><td>20</td></tr>
+  <tr><td>XL</td><td>65</td><td>54</td><td>59</td><td>21</td></tr>
+</table>`
+
+describe('parsePastedSizeTable — 일반 텍스트(탭 구분)', () => {
+  it('사이즈별 실측표를 만든다', () => {
+    const result = parsePastedSizeTable(null, PLAIN_TEXT)
+    expect(result.table).toEqual({
+      M: { 총장: 61, 어깨너비: 50, 가슴단면: 55, 소매길이: 19 },
+      L: { 총장: 63, 어깨너비: 52, 가슴단면: 57, 소매길이: 20 },
+      XL: { 총장: 65, 어깨너비: 54, 가슴단면: 59, 소매길이: 21 },
+    })
+  })
+
+  it('"내 사이즈" 입력 안내행은 숫자가 없어 결과에서 빠진다', () => {
+    const result = parsePastedSizeTable(null, PLAIN_TEXT)
+    expect(result.table['내 사이즈']).toBeUndefined()
+  })
+
+  it('표준 항목만 있으면 unrecognizedHeaders가 비어있다', () => {
+    const result = parsePastedSizeTable(null, PLAIN_TEXT)
+    expect(result.unrecognizedHeaders).toEqual([])
+  })
+})
+
+describe('parsePastedSizeTable — HTML 클립보드(우선)', () => {
+  it('HTML이 있으면 이걸 우선 파싱한다', () => {
+    const result = parsePastedSizeTable(HTML_TABLE, '못 읽는 텍스트')
+    expect(result.table.M).toEqual({ 총장: 61, 어깨너비: 50, 가슴단면: 55, 소매길이: 19 })
+  })
+})
+
+describe('parsePastedSizeTable — 별칭·미인식 헤더', () => {
+  it('별칭 표기를 표준 키로 정규화한다', () => {
+    const text = ['cm\t기장\t흉위', 'M\t70\t55'].join('\n')
+    const result = parsePastedSizeTable(null, text)
+    expect(result.table.M).toEqual({ 총장: 70, 가슴단면: 55 })
+  })
+
+  it('별칭 사전에 없는 헤더는 버리지 않고 원문 키로 저장한다', () => {
+    const text = ['cm\t총장\t밴딩둘레', 'M\t70\t80'].join('\n')
+    const result = parsePastedSizeTable(null, text)
+    expect(result.table.M).toEqual({ 총장: 70, 밴딩둘레: 80 })
+    expect(result.unrecognizedHeaders).toEqual(['밴딩둘레'])
+  })
+})
+
+describe('parsePastedSizeTable — 견고성', () => {
+  it('표를 하나도 못 찾으면 빈 결과를 돌려주고 예외를 던지지 않는다', () => {
+    expect(() => parsePastedSizeTable(null, '아무 텍스트나')).not.toThrow()
+    const result = parsePastedSizeTable(null, '아무 텍스트나')
+    expect(result.table).toEqual({})
+  })
+
+  it('빈 문자열에도 예외를 던지지 않는다', () => {
+    expect(() => parsePastedSizeTable(null, '')).not.toThrow()
+  })
+})
+```
+
+- [ ] **Step 2: 테스트가 실패하는지 확인**
+
+Run: `npm test -- tests/musinsa/pasteSizeTable.test.ts`
+Expected: FAIL — `parsePastedSizeTable` 모듈 없음
+
+- [ ] **Step 3: 구현 작성**
+
+`lib/musinsa/pasteSizeTable.ts`:
+
+```ts
+import { normalizeMeasurementKey, isStandardKey } from '@/lib/musinsa/measurements'
+import type { SizeTable } from '@/lib/musinsa/types'
+
+export type PasteParseResult = {
+  table: SizeTable
+  unrecognizedHeaders: string[]
+}
+
+/**
+ * 사용자가 무신사 "사이즈" 탭에서 복사해 붙여넣은 내용을 실측표로 바꾼다.
+ * html(clipboardData의 text/html)이 있으면 <table> 구조를 그대로 써서 셀 경계가 정확하고,
+ * 없으면(모바일 등) plainText를 줄바꿈·탭 기준으로 나눠 폴백한다.
+ */
+export function parsePastedSizeTable(html: string | null, plainText: string): PasteParseResult {
+  const rows = html ? rowsFromHtml(html) : rowsFromPlainText(plainText)
+  return buildTable(rows)
+}
+
+function rowsFromHtml(html: string): string[][] {
+  const rowMatches = html.match(/<tr[\s\S]*?<\/tr>/gi) ?? []
+  return rowMatches
+    .map((rowHtml) => {
+      const cellMatches = rowHtml.match(/<t[hd][\s\S]*?<\/t[hd]>/gi) ?? []
+      return cellMatches.map(stripTags)
+    })
+    .filter((row) => row.some((cell) => cell.length > 0))
+}
+
+function stripTags(fragment: string): string {
+  return fragment.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim()
+}
+
+function rowsFromPlainText(text: string): string[][] {
+  return text
+    .split(/\r?\n/)
+    .map((line) => {
+      const cells = line.includes('\t') ? line.split(/\t+/) : line.split(/ {2,}/)
+      return cells.map((cell) => cell.trim())
+    })
+    .filter((row) => row.some((cell) => cell.length > 0))
+}
+
+function buildTable(rows: string[][]): PasteParseResult {
+  const headerRow = rows.find((row) => row.filter((c) => c.length > 0).length >= 2)
+  if (!headerRow) return { table: {}, unrecognizedHeaders: [] }
+
+  const keys = headerRow.slice(1).map(normalizeMeasurementKey)
+  const unrecognizedHeaders = keys.filter((key) => key.length > 0 && !isStandardKey(key))
+
+  const table: SizeTable = {}
+  for (const row of rows) {
+    if (row === headerRow) continue
+    const sizeLabel = row[0]
+    if (!sizeLabel) continue
+
+    const entry: Record<string, number> = {}
+    keys.forEach((key, index) => {
+      const raw = row[index + 1]
+      if (!raw) return
+      const value = Number(raw.replace(/[^\d.]/g, ''))
+      if (Number.isFinite(value) && value > 0) entry[key] = value
+    })
+    if (Object.keys(entry).length > 0) table[sizeLabel] = entry
+  }
+
+  return { table, unrecognizedHeaders }
+}
+```
+
+- [ ] **Step 4: 테스트 통과 확인**
+
+Run: `npm test -- tests/musinsa/pasteSizeTable.test.ts`
+Expected: PASS, 9 passed
+
+- [ ] **Step 5: 커밋**
+
+```bash
+git add lib/musinsa/pasteSizeTable.ts tests/musinsa/pasteSizeTable.test.ts
+git commit -m "feat: parse pasted musinsa size table into measurements"
 ```
 
 ---
@@ -1796,16 +1934,18 @@ git commit -m "feat: add musinsa parse api with cache and retry"
 
 ### Task 10: 링크 입력과 옵션 선택 화면
 
-파싱에 성공한 필드는 채워진 채 읽기 전용으로 잠기고, **실패한 필드만 입력 폼으로 뜬다.** 사용자는 "실패했습니다"가 아니라 "이 칸만 채워주세요"를 본다.
+파싱에 성공한 필드는 채워진 채 읽기 전용으로 잠기고, **실패한 필드만 입력 폼으로 뜬다.** 사용자는 "실패했습니다"가 아니라 "이 칸만 채워주세요"를 본다. `sizeTable`은 Task 5에서 항상 실패로 오므로, 빈 입력칸 대신 **붙여넣기 폼**(스펙 §8-1)을 먼저 보여준다.
 
 **Files:**
 - Create: `components/LinkInputBar.tsx`
+- Create: `components/PasteSizeTableField.tsx`
 - Create: `components/GarmentForm.tsx`
 
 **Interfaces:**
-- Consumes: `ParseResult`, `PARSEABLE_FIELDS` (Task 5), `CATEGORY_LABELS` (Task 3), `POST /api/musinsa/parse` (Task 9)
+- Consumes: `ParseResult`, `PARSEABLE_FIELDS` (Task 5), `parsePastedSizeTable` (Task 5-1), `STANDARD_KEYS` (Task 4), `CATEGORY_LABELS` (Task 3), `POST /api/musinsa/parse` (Task 9)
 - Produces:
   - `<LinkInputBar />` — 파싱 후 `<GarmentForm />`을 띄운다
+  - `<PasteSizeTableField />` — 붙여넣기 텍스트 영역 + 파싱 결과 미리보기
   - `GarmentSubmitPayload` 타입 — Task 11의 API 요청 본문
 
 - [ ] **Step 1: 링크 입력 바 작성**
@@ -1881,9 +2021,78 @@ export function LinkInputBar() {
 }
 ```
 
-- [ ] **Step 2: 옵션 선택 + 수동 폴백 폼 작성**
+- [ ] **Step 2: 붙여넣기 필드 컴포넌트 작성**
 
-`components/GarmentForm.tsx`:
+`components/PasteSizeTableField.tsx`. `parsePastedSizeTable`(Task 5-1)를 붙여넣기 이벤트에 연결한다 — `clipboardData`의 `text/html`을 우선 쓰고 없으면 `text/plain`으로 넘어간다.
+
+```tsx
+'use client'
+
+import { useState } from 'react'
+import { parsePastedSizeTable } from '@/lib/musinsa/pasteSizeTable'
+import type { SizeTable } from '@/lib/musinsa/types'
+
+type Props = {
+  onParsed: (table: SizeTable) => void
+}
+
+export function PasteSizeTableField({ onParsed }: Props) {
+  const [text, setText] = useState('')
+  const [table, setTable] = useState<SizeTable>({})
+  const [unrecognizedHeaders, setUnrecognizedHeaders] = useState<string[]>([])
+  const [attempted, setAttempted] = useState(false)
+
+  function handlePaste(event: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const html = event.clipboardData.getData('text/html') || null
+    const plain = event.clipboardData.getData('text/plain')
+    const result = parsePastedSizeTable(html, plain)
+
+    setTable(result.table)
+    setUnrecognizedHeaders(result.unrecognizedHeaders)
+    setAttempted(true)
+    onParsed(result.table)
+  }
+
+  const recognizedSizes = Object.keys(table)
+
+  return (
+    <div className="space-y-2">
+      <p className="text-sm text-gray-600">
+        무신사 &quot;사이즈&quot; 탭에서 표 전체(헤더 행부터 사이즈 행까지)를 드래그해 복사한 뒤 아래에 붙여넣어주세요.
+      </p>
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onPaste={handlePaste}
+        rows={4}
+        placeholder="여기에 붙여넣기 (Ctrl+V)"
+        className="w-full rounded border px-3 py-2 font-mono text-sm"
+      />
+      {attempted && recognizedSizes.length > 0 && (
+        <ul className="rounded bg-green-50 p-2 text-sm text-green-800">
+          {recognizedSizes.map((size) => (
+            <li key={size}>
+              {size}: {Object.entries(table[size]).map(([key, value]) => `${key} ${value}`).join(', ')}
+            </li>
+          ))}
+        </ul>
+      )}
+      {attempted && recognizedSizes.length === 0 && (
+        <p className="text-sm text-red-600">
+          표를 인식하지 못했습니다. 다시 복사해서 붙여넣거나, 아래 직접 입력을 이용해주세요.
+        </p>
+      )}
+      {unrecognizedHeaders.length > 0 && (
+        <p className="text-xs text-gray-500">인식 못 한 항목: {unrecognizedHeaders.join(', ')}</p>
+      )}
+    </div>
+  )
+}
+```
+
+- [ ] **Step 3: 옵션 선택 + 실측 붙여넣기 + 수동 폴백 폼 작성**
+
+`components/GarmentForm.tsx`. 실측 필드는 `<PasteSizeTableField />`가 우선이고, 붙여넣은 표에 현재 선택한 사이즈 행이 없으면 표준 항목 9개짜리 숫자 입력 그리드(`STANDARD_KEYS`, Task 4)로 최종 폴백한다.
 
 ```tsx
 'use client'
@@ -1892,6 +2101,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CATEGORY_LABELS, type Category } from '@/lib/types'
 import { PARSEABLE_FIELDS, type ParseResult, type ParseableField, type SizeTable } from '@/lib/musinsa/types'
+import { STANDARD_KEYS } from '@/lib/musinsa/measurements'
+import { PasteSizeTableField } from '@/components/PasteSizeTableField'
 
 export type GarmentSubmitPayload = {
   goodsNo: string
@@ -1904,6 +2115,8 @@ export type GarmentSubmitPayload = {
   colorOption: string
   sizeOption: string
   measurements: Record<string, number>
+  /** 붙여넣기로 얻은 사이즈×항목 전체 매트릭스. Task 11이 musinsa_cache에 반영한다. 못 얻었으면 null. */
+  fullSizeTable: SizeTable | null
   manualFields: ParseableField[]
 }
 
@@ -1927,25 +2140,24 @@ export function GarmentForm({ parsed, sourceUrl, onDone }: Props) {
 
   const colors = f.options.ok ? f.options.value.colors : []
   const sizes = f.options.ok ? f.options.value.sizes : []
-  const sizeTable: SizeTable = f.sizeTable.ok ? f.sizeTable.value : {}
-  const sizeKeys = Object.keys(sizeTable)
 
   const [color, setColor] = useState(colors[0] ?? '')
-  const [size, setSize] = useState(sizes[0] ?? sizeKeys[0] ?? '')
-  const [manualMeasurements, setManualMeasurements] = useState('')
+  const [size, setSize] = useState(sizes[0] ?? '')
+  const [pastedSizeTable, setPastedSizeTable] = useState<SizeTable>({})
+  const [manualMeasurements, setManualMeasurements] = useState<Record<string, string>>({})
 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const autoMeasurements = sizeTable[size] ?? {}
+  const parsedForSize = pastedSizeTable[size]
+  const hasParsedForSize = Boolean(parsedForSize && Object.keys(parsedForSize).length > 0)
 
-  function parseManualMeasurements(): Record<string, number> {
-    // "총장 72, 가슴단면 55" 형식을 받는다.
+  function manualMeasurementsAsNumbers(): Record<string, number> {
     const entries: Record<string, number> = {}
-    for (const chunk of manualMeasurements.split(',')) {
-      const [key, raw] = chunk.trim().split(/\s+/)
-      const value = Number(raw)
-      if (key && Number.isFinite(value) && value > 0) entries[key] = value
+    for (const key of STANDARD_KEYS) {
+      const raw = manualMeasurements[key]
+      const value = raw ? Number(raw) : NaN
+      if (Number.isFinite(value) && value > 0) entries[key] = value
     }
     return entries
   }
@@ -1954,6 +2166,8 @@ export function GarmentForm({ parsed, sourceUrl, onDone }: Props) {
     event.preventDefault()
     setSubmitting(true)
     setError(null)
+
+    const hasFullPastedTable = Object.keys(pastedSizeTable).length > 0
 
     const payload: GarmentSubmitPayload = {
       goodsNo: parsed.goodsNo,
@@ -1965,7 +2179,8 @@ export function GarmentForm({ parsed, sourceUrl, onDone }: Props) {
       category,
       colorOption: color.trim(),
       sizeOption: size.trim(),
-      measurements: f.sizeTable.ok ? autoMeasurements : parseManualMeasurements(),
+      measurements: hasParsedForSize ? parsedForSize : manualMeasurementsAsNumbers(),
+      fullSizeTable: hasFullPastedTable ? pastedSizeTable : null,
       manualFields,
     }
 
@@ -2029,11 +2244,11 @@ export function GarmentForm({ parsed, sourceUrl, onDone }: Props) {
         )}
       </Field>
 
-      <Field label="사이즈" manual={!f.options.ok && sizeKeys.length === 0}>
-        {sizes.length > 0 || sizeKeys.length > 0 ? (
+      <Field label="사이즈" manual={!f.options.ok}>
+        {sizes.length > 0 ? (
           <select value={size} onChange={(e) => setSize(e.target.value)}
             required className="w-full rounded border px-3 py-2">
-            {(sizes.length > 0 ? sizes : sizeKeys).map((s) => <option key={s} value={s}>{s}</option>)}
+            {sizes.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         ) : (
           <input value={size} onChange={(e) => setSize(e.target.value)} required
@@ -2041,18 +2256,28 @@ export function GarmentForm({ parsed, sourceUrl, onDone }: Props) {
         )}
       </Field>
 
-      <Field label="실측" manual={!f.sizeTable.ok}>
-        {f.sizeTable.ok ? (
-          <ul className="text-sm text-gray-700">
-            {Object.entries(autoMeasurements).map(([key, value]) => (
-              <li key={key}>{key} {value}cm</li>
-            ))}
-            {Object.keys(autoMeasurements).length === 0 && <li>선택한 사이즈의 실측 정보가 없습니다.</li>}
-          </ul>
+      <Field label="실측" manual>
+        <PasteSizeTableField onParsed={setPastedSizeTable} />
+        {hasParsedForSize ? (
+          <p className="text-sm text-green-700">
+            {size || '선택한'} 사이즈 값이 자동으로 채워졌습니다: {Object.entries(parsedForSize!).map(([k, v]) => `${k} ${v}cm`).join(', ')}
+          </p>
         ) : (
-          <input value={manualMeasurements} onChange={(e) => setManualMeasurements(e.target.value)}
-            placeholder="총장 72, 가슴단면 55, 어깨너비 46"
-            className="w-full rounded border px-3 py-2" />
+          <div className="grid grid-cols-3 gap-2">
+            {[...STANDARD_KEYS].map((key) => (
+              <label key={key} className="text-xs">
+                {key}
+                <input
+                  type="number"
+                  value={manualMeasurements[key] ?? ''}
+                  onChange={(e) =>
+                    setManualMeasurements((prev) => ({ ...prev, [key]: e.target.value }))
+                  }
+                  className="w-full rounded border px-2 py-1"
+                />
+              </label>
+            ))}
+          </div>
         )}
       </Field>
 
@@ -2086,26 +2311,65 @@ function Field({ label, manual, children }: { label: string; manual: boolean; ch
 }
 ```
 
-- [ ] **Step 3: 커밋**
+- [ ] **Step 4: 커밋**
 
 ```bash
-git add components/LinkInputBar.tsx components/GarmentForm.tsx
-git commit -m "feat: add link input and garment form with manual fallback"
+git add components/LinkInputBar.tsx components/PasteSizeTableField.tsx components/GarmentForm.tsx
+git commit -m "feat: add link input, paste-based size table, and garment form"
 ```
 
 ---
 
 ### Task 11: 옷장 등록 API
 
+사용자가 사이즈표를 붙여넣어서 완성한 경우(스펙 §8-1 "캐시 반영"), 그 전체 매트릭스를 `musinsa_cache`에 병합해 다음 사용자는 이 상품에서 붙여넣기 단계를 건너뛰게 한다.
+
 **Files:**
 - Create: `app/api/garments/route.ts`
 - Create: `lib/storage.ts`
+- Modify: `lib/musinsa/cache.ts:1-20` (Task 9에서 만든 파일에 병합 함수 추가)
 
 **Interfaces:**
-- Consumes: `GarmentSubmitPayload` (Task 10), `createServerSupabase` (Task 8), `supabaseAdmin` (Task 8), `PARSEABLE_FIELDS` (Task 5)
-- Produces: `POST /api/garments` — 응답 `{ id: string }` 또는 `{ error: string }`
+- Consumes: `GarmentSubmitPayload` (Task 10), `createServerSupabase` (Task 8), `supabaseAdmin` (Task 8), `AUTO_PARSED_FIELDS` (Task 5), `ok` (Task 5)
+- Produces:
+  - `POST /api/garments` — 응답 `{ id: string }` 또는 `{ error: string }`
+  - `mergeSizeTableIntoCache(goodsNo: string, table: SizeTable): Promise<void>`
 
-- [ ] **Step 1: 이미지 복사 유틸 작성**
+- [ ] **Step 1: 캐시 병합 함수 추가**
+
+`lib/musinsa/cache.ts`에 이어서 작성한다(Task 9에서 만든 `readCache`/`writeCache` 아래):
+
+```ts
+import { ok, type SizeTable } from '@/lib/musinsa/types'
+
+/**
+ * 사용자가 붙여넣은 사이즈표를 기존 캐시 행에 병합한다.
+ * fetched_at은 건드리지 않는다 — 가격 TTL과 무관한 갱신이라 upsert 대신 update를 쓴다.
+ * 캐시 행 자체가 없으면(원본 파싱이 완전히 실패해 writeCache가 호출되지 않은 경우) 병합하지 않는다.
+ */
+export async function mergeSizeTableIntoCache(goodsNo: string, table: SizeTable): Promise<void> {
+  const { data } = await supabaseAdmin
+    .from('musinsa_cache')
+    .select('payload')
+    .eq('goods_no', goodsNo)
+    .maybeSingle()
+
+  if (!data) return
+
+  const payload = data.payload as ParseResult
+  const merged: ParseResult = {
+    ...payload,
+    fields: { ...payload.fields, sizeTable: ok(table) },
+  }
+
+  await supabaseAdmin
+    .from('musinsa_cache')
+    .update({ payload: merged })
+    .eq('goods_no', goodsNo)
+}
+```
+
+- [ ] **Step 2: 이미지 복사 유틸 작성**
 
 `lib/storage.ts`:
 
@@ -2147,7 +2411,7 @@ export async function copyImageToStorage(
 }
 ```
 
-- [ ] **Step 2: 등록 Route Handler 작성**
+- [ ] **Step 3: 등록 Route Handler 작성**
 
 `app/api/garments/route.ts`:
 
@@ -2156,7 +2420,8 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createServerSupabase } from '@/lib/supabase/server'
 import { copyImageToStorage } from '@/lib/storage'
-import { PARSEABLE_FIELDS } from '@/lib/musinsa/types'
+import { mergeSizeTableIntoCache } from '@/lib/musinsa/cache'
+import { AUTO_PARSED_FIELDS } from '@/lib/musinsa/types'
 import type { ParseMode } from '@/lib/types'
 
 export const maxDuration = 30
@@ -2172,12 +2437,19 @@ const Body = z.object({
   colorOption: z.string(),
   sizeOption: z.string(),
   measurements: z.record(z.string(), z.number()),
+  fullSizeTable: z.record(z.string(), z.record(z.string(), z.number())).nullable(),
   manualFields: z.array(z.string()),
 })
 
-function computeParseMode(manualFieldCount: number): ParseMode {
-  if (manualFieldCount === 0) return 'auto'
-  if (manualFieldCount >= PARSEABLE_FIELDS.length) return 'manual'
+/**
+ * options·sizeTable은 제외한다 — 항상 실패가 정상인 필드라 포함시키면
+ * 모든 옷이 영원히 'manual'로 찍힌다 (스펙 §7, Task 5의 AUTO_PARSED_FIELDS 참고).
+ */
+function computeParseMode(manualFields: readonly string[]): ParseMode {
+  const autoFieldSet: readonly string[] = AUTO_PARSED_FIELDS
+  const failedAutoFields = manualFields.filter((field) => autoFieldSet.includes(field))
+  if (failedAutoFields.length === 0) return 'auto'
+  if (failedAutoFields.length >= AUTO_PARSED_FIELDS.length) return 'manual'
   return 'partial'
 }
 
@@ -2212,7 +2484,7 @@ export async function POST(request: Request) {
       category: input.category,
       color_option: input.colorOption,
       size_option: input.sizeOption,
-      parse_mode: computeParseMode(input.manualFields.length),
+      parse_mode: computeParseMode(input.manualFields),
     })
     .select('id')
     .single()
@@ -2238,11 +2510,20 @@ export async function POST(request: Request) {
     }
   }
 
+  if (input.fullSizeTable) {
+    // 다음 사용자를 위한 최적화일 뿐이므로 실패해도 등록 자체는 막지 않는다.
+    try {
+      await mergeSizeTableIntoCache(input.goodsNo, input.fullSizeTable)
+    } catch {
+      // 무시 — 캐시는 다음 파싱 시도에서 다시 채워진다.
+    }
+  }
+
   return NextResponse.json({ id: garment.id }, { status: 201 })
 }
 ```
 
-- [ ] **Step 3: 중복 등록 경고 확인 쿼리 추가**
+- [ ] **Step 4: 중복 등록 경고 확인 쿼리 추가**
 
 같은 상품·색상·사이즈가 이미 있으면 경고만 하고 등록은 허용한다(같은 옷을 두 벌 살 수 있다). `insert` 직전에 넣는다.
 
@@ -2270,22 +2551,24 @@ export async function POST(request: Request) {
   )
 ```
 
-- [ ] **Step 4: 수동 검증**
+- [ ] **Step 5: 수동 검증**
 
 `npm run dev` 후 로그인하고, 다음 태스크에서 만들 `/wardrobe` 대신 임시로 랜딩에 `<LinkInputBar />`를 붙여 실제 무신사 링크로 등록해 본다.
 
 Expected:
 1. 링크를 넣으면 색상·사이즈 선택박스가 뜬다.
-2. "옷장에 넣기"를 누르면 오류 없이 완료된다.
-3. Supabase Table Editor의 `garments`에 행이 생기고 `parse_mode`가 채워져 있다.
-4. `garment_measurements`에 선택한 사이즈의 실측 행들이 있다.
-5. Storage의 `garments` 버킷에 이미지 파일이 올라와 있다.
+2. "사이즈" 탭 표를 복사해 붙여넣으면 선택한 사이즈 값이 자동으로 채워진다.
+3. "옷장에 넣기"를 누르면 오류 없이 완료된다.
+4. Supabase Table Editor의 `garments`에 행이 생기고 `parse_mode`가 채워져 있다.
+5. `garment_measurements`에 선택한 사이즈의 실측 행들이 있다.
+6. `musinsa_cache`의 해당 `goods_no` 행에 `payload.fields.sizeTable`이 이번에 붙여넣은 매트릭스로 채워져 있다.
+7. Storage의 `garments` 버킷에 이미지 파일이 올라와 있다.
 
-- [ ] **Step 5: 커밋**
+- [ ] **Step 6: 커밋**
 
 ```bash
-git add app/api/garments lib/storage.ts
-git commit -m "feat: add garment registration api with image copy"
+git add app/api/garments lib/storage.ts lib/musinsa/cache.ts
+git commit -m "feat: add garment registration api with image copy and size table cache merge"
 ```
 
 ---
@@ -2470,11 +2753,12 @@ git commit -m "feat: add wardrobe grid with category filter"
 
 계획 1이 끝나면 다음이 모두 성립한다.
 
-- [ ] `npm test`가 전부 통과한다 (URL 추출, 실측 정규화, 파서, fetcher, RLS)
+- [ ] `npm test`가 전부 통과한다 (URL 추출, 실측 정규화, 파서, 붙여넣기 파서, fetcher, RLS)
 - [ ] `npm run build`가 타입 오류 없이 성공한다
 - [ ] 구글 로그인 후 `profiles` 행과 `share_slug`가 자동 생성된다
 - [ ] 무신사 링크를 붙여넣어 색상·사이즈를 고르면 옷장에 저장된다
-- [ ] 파싱이 실패한 필드만 수동 입력 폼으로 뜬다
+- [ ] 파싱이 실패한 필드만 수동 입력 폼으로 뜬다 (`sizeTable`·`options`는 항상 이 경로를 탄다)
+- [ ] 사이즈표를 붙여넣으면 선택한 사이즈 값이 자동으로 채워지고, `musinsa_cache`에도 반영된다
 - [ ] `garment_measurements`에 표준화된 항목명으로 실측이 쌓인다
 - [ ] 상품 이미지가 Supabase Storage에 복사되어 표시된다
 - [ ] 다른 사용자가 내 비공개 옷장을 조회·수정할 수 없다 (RLS 테스트로 증명)
