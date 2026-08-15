@@ -1,27 +1,31 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import type { ParseResult } from '@/lib/musinsa/types'
 import { GarmentForm } from '@/components/GarmentForm'
+import { VerdictBadge } from '@/components/VerdictBadge'
+import { DeviationReport } from '@/components/DeviationReport'
+import type { Verdict } from '@/lib/verdict'
 
-/**
- * 옷장 등록의 진입점. 링크를 붙여넣고 `/api/musinsa/parse`를 호출해 결과를 받은 뒤,
- * 그 결과를 <GarmentForm />에 넘겨 필드별 성공/실패에 따라 읽기전용/입력 폼을 나눠 그리게 한다.
- * 여기서는 상태(로딩·에러·파싱 결과)만 들고 있고, 실제 저장(POST /api/garments)은 GarmentForm이 맡는다.
- */
-export function LinkInputBar() {
-  const router = useRouter()
+type AnalyzeResult = {
+  verdict: Verdict
+  fitScore: number
+  report: { status: 'ok' | 'low_confidence' | 'insufficient'; fields: unknown[] }
+}
+
+export function AnalyzeLinkBar() {
   const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [parsed, setParsed] = useState<ParseResult | null>(null)
+  const [result, setResult] = useState<AnalyzeResult | null>(null)
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     setLoading(true)
     setError(null)
     setParsed(null)
+    setResult(null)
 
     const response = await fetch('/api/musinsa/parse', {
       method: 'POST',
@@ -44,32 +48,32 @@ export function LinkInputBar() {
         <input
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="무신사 상품 링크를 붙여넣으세요"
+          placeholder="구매를 고민 중인 무신사 상품 링크를 붙여넣으세요"
           className="flex-1 rounded-lg border px-4 py-2"
         />
-        <button
-          type="submit"
-          disabled={loading || url.trim().length === 0}
-          className="rounded-lg bg-black px-5 py-2 text-white disabled:bg-gray-300"
-        >
+        <button type="submit" disabled={loading || url.trim().length === 0}
+          className="rounded-lg bg-black px-5 py-2 text-white disabled:bg-gray-300">
           {loading ? '불러오는 중…' : '불러오기'}
         </button>
       </form>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
-      {parsed && (
+      {parsed && !result && (
         <GarmentForm
           parsed={parsed}
           sourceUrl={url}
-          submitEndpoint="/api/garments"
-          submitLabel="옷장에 넣기"
-          onSubmitted={() => {
-            setParsed(null)
-            setUrl('')
-            router.refresh()
-          }}
+          submitEndpoint="/api/analyze"
+          submitLabel="판단하기"
+          onSubmitted={(data) => setResult(data as AnalyzeResult)}
         />
+      )}
+
+      {result && (
+        <div className="space-y-3 rounded-xl border p-5">
+          <VerdictBadge verdict={result.verdict} />
+          <DeviationReport status={result.report.status} fields={result.report.fields as never} />
+        </div>
       )}
     </div>
   )

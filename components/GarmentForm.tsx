@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { CATEGORY_LABELS, type Category } from '@/lib/types'
 import { PARSEABLE_FIELDS, type ParseResult, type ParseableField, type SizeTable } from '@/lib/musinsa/types'
 import { STANDARD_KEYS } from '@/lib/musinsa/measurements'
@@ -26,16 +25,20 @@ export type GarmentSubmitPayload = {
 type Props = {
   parsed: ParseResult
   sourceUrl: string
-  onDone: () => void
+  /** 옷장 등록은 '/api/garments', 구매 판단은 '/api/analyze' — 등록 파이프라인은 같고 목적지만 다르다. */
+  submitEndpoint: string
+  submitLabel: string
+  onSubmitted: (result: Record<string, unknown>) => void
 }
 
 /**
  * 필드별 파싱 성공/실패(ParseResult.fields)에 따라 입력칸을 나눠 그린다 —
  * 성공한 필드는 읽기전용으로 잠기고, 실패한 필드만 사용자가 채운다(스펙의 "필드 단위 파싱 실패" 원칙).
  * options·sizeTable은 Task 5에서 애초에 자동 파싱을 시도하지 않으므로 항상 manualFields에 포함된다.
+ * 옷장 등록(LinkInputBar)과 구매 판단(AnalyzeLinkBar)이 이 폼을 그대로 공유한다 — 파싱·검증 UX가
+ * 갈라지면 무신사 개편 대응이나 실측 입력 로직을 두 곳에서 따로 관리해야 한다.
  */
-export function GarmentForm({ parsed, sourceUrl, onDone }: Props) {
-  const router = useRouter()
+export function GarmentForm({ parsed, sourceUrl, submitEndpoint, submitLabel, onSubmitted }: Props) {
   const f = parsed.fields
 
   const manualFields = PARSEABLE_FIELDS.filter((key) => !f[key].ok)
@@ -98,7 +101,7 @@ export function GarmentForm({ parsed, sourceUrl, onDone }: Props) {
       manualFields,
     }
 
-    const response = await fetch('/api/garments', {
+    const response = await fetch(submitEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -107,11 +110,10 @@ export function GarmentForm({ parsed, sourceUrl, onDone }: Props) {
 
     if (!response.ok) {
       const data = await response.json().catch(() => ({}))
-      setError(data.error ?? '옷장에 저장하지 못했습니다.')
+      setError(data.error ?? '처리하지 못했습니다.')
       return
     }
-    onDone()
-    router.refresh()
+    onSubmitted(await response.json())
   }
 
   return (
@@ -206,7 +208,7 @@ export function GarmentForm({ parsed, sourceUrl, onDone }: Props) {
 
       <button type="submit" disabled={submitting}
         className="w-full rounded-lg bg-black py-3 text-white disabled:bg-gray-300">
-        {submitting ? '저장 중…' : '옷장에 넣기'}
+        {submitting ? '처리 중…' : submitLabel}
       </button>
     </form>
   )
