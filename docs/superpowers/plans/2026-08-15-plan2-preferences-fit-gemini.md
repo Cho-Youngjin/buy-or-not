@@ -2423,7 +2423,12 @@ describe('getMatchAdvice', () => {
   })
 
   it('한 번 실패하면 재시도하고, 재시도까지 실패하면 null을 돌려준다', async () => {
-    generateContentMock.mockRejectedValue(new Error('timeout'))
+    // mockRejectedValue(범용 재사용)나 mockImplementation은 이 vi.mock + 정적 import
+    // 조합에서 vitest의 mock 계측과 충돌해 실제로는 잡히는 예외를 unhandled rejection으로
+    // 오탐지한다(실제 구현 시 재현 확인됨) — 호출 횟수만큼 mockRejectedValueOnce를 체이닝해 피해간다.
+    generateContentMock
+      .mockRejectedValueOnce(new Error('timeout'))
+      .mockRejectedValueOnce(new Error('timeout'))
 
     const { getMatchAdvice } = await import('@/lib/ai/advisor')
     await expect(getMatchAdvice(baseInput)).resolves.toBeNull()

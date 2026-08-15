@@ -11,6 +11,7 @@ type AnalyzeResult = {
   verdict: Verdict
   fitScore: number
   report: { status: 'ok' | 'low_confidence' | 'insufficient'; fields: unknown[] }
+  feedback: { summary: string; sizeFeedback: string; matchFeedback: string; priceFeedback: string } | null
 }
 
 export function AnalyzeLinkBar() {
@@ -72,7 +73,7 @@ export function AnalyzeLinkBar() {
       {result && (
         <div className="space-y-3 rounded-xl border p-5">
           <VerdictBadge verdict={result.verdict} />
-          <DeviationReport status={result.report.status} fields={result.report.fields as never} />
+          <DeviationReport status={result.report.status} fields={result.report.fields as never} feedback={result.feedback} />
         </div>
       )}
     </div>

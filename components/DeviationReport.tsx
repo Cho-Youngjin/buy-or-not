@@ -6,13 +6,21 @@ type FieldDeviation = {
   avoidanceSignal: boolean
 }
 
+type Feedback = {
+  summary: string
+  sizeFeedback: string
+  matchFeedback: string
+  priceFeedback: string
+} | null
+
 type Props = {
   status: 'ok' | 'low_confidence' | 'insufficient'
   fields: FieldDeviation[]
+  feedback?: Feedback
 }
 
 // "총장이 깁니다" 옆에 근거 수치를 항상 같이 보여준다(스펙 §11) — AI 말만 믿게 만들지 않는다.
-export function DeviationReport({ status, fields }: Props) {
+export function DeviationReport({ status, fields, feedback }: Props) {
   if (status === 'insufficient') {
     return (
       <p className="rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
@@ -23,6 +31,16 @@ export function DeviationReport({ status, fields }: Props) {
 
   return (
     <div className="space-y-2">
+      {feedback ? (
+        <div className="space-y-1 rounded-lg bg-blue-50 p-3 text-sm text-blue-900">
+          <p className="font-medium">{feedback.summary}</p>
+          <p>{feedback.sizeFeedback}</p>
+          <p>{feedback.matchFeedback}</p>
+          <p>{feedback.priceFeedback}</p>
+        </div>
+      ) : (
+        <p className="text-sm text-gray-500">AI 코멘트를 만들지 못했습니다. 아래 실측 비교로 판단해주세요.</p>
+      )}
       {status === 'low_confidence' && (
         <p className="text-xs text-amber-700">
           선호도(별점·착용빈도)를 남긴 옷이 없어 카테고리 전체 평균으로 비교했습니다 — 신뢰도가 낮습니다.
