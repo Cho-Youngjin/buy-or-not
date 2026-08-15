@@ -69,3 +69,13 @@ npx supabase db diff --schema public     # verify migrations match live schema
 **The Musinsa parser is an isolated adapter** (`lib/musinsa/parser.ts`) that turns raw HTML into a `ParseResult` as a pure function — no network code inside it, so it's tested entirely against saved HTML fixtures (`tests/fixtures/musinsa/`). Network fetching (timeout, retry) is a separate module (`lib/musinsa/fetcher.ts`). Parsing failure is field-level, not all-or-nothing: `ParseResult.fields.<field>` is `{ ok: true, value } | { ok: false, reason }`, and the registration form locks successfully-parsed fields as read-only while only rendering inputs for the fields that failed. When Musinsa's page structure changes, only `parser.ts` and its fixtures should need updating.
 
 **Phase 0 of plan 1 is a research gate, not a coding task** — it involves manually fetching real Musinsa product pages, checking `robots.txt`, and determining whether data is in static HTML, JSON-LD, or requires hitting an internal API. Its findings (`docs/superpowers/notes/phase0-musinsa-findings.md`, once written) determine how `parser.ts` is actually implemented, and downstream tasks should not be started against assumed HTML structure before that file exists.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
