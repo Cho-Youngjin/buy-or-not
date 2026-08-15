@@ -1288,7 +1288,8 @@ git commit -m "feat: decide buy/caution/skip verdict from fit score and match se
 - Consumes: `copyImageToStorage` (계획 1 Task 11), `mergeSizeTableIntoCache` (계획 1 Task 11), `AUTO_PARSED_FIELDS` (계획 1 Task 5)
 - Produces:
   - `RegisterGarmentInput` — 기존 `GarmentSubmitPayload`와 필드 동일
-  - `registerGarment(supabase, ownerId: string, status: GarmentStatus, input: RegisterGarmentInput): Promise<{ id: string; duplicate: boolean }>`
+  - `RegisterGarmentResult = { id: string; duplicate: boolean; measurementsFailed: boolean }` — 원래 라우트가 실측 저장만 실패했을 때 207을 주던 동작을 잃지 않기 위해 플래그로 넘긴다
+  - `registerGarment(supabase, ownerId: string, status: GarmentStatus, input: RegisterGarmentInput): Promise<RegisterGarmentResult>`
 
 - [ ] **Step 1: 공유 등록 함수 작성**
 
@@ -1314,6 +1315,13 @@ export type RegisterGarmentInput = {
   measurements: Record<string, number>
   fullSizeTable: SizeTable | null
   manualFields: string[]
+}
+
+export type RegisterGarmentResult = {
+  id: string
+  duplicate: boolean
+  /** 옷 자체는 저장됐지만 실측 저장이 실패한 경우. 호출부가 응답 상태 코드를 결정할 때 쓴다. */
+  measurementsFailed: boolean
 }
 
 /**
@@ -1343,7 +1351,7 @@ export async function registerGarment(
   ownerId: string,
   status: GarmentStatus,
   input: RegisterGarmentInput,
-): Promise<{ id: string; duplicate: boolean }> {
+): Promise<RegisterGarmentResult> {
   const storedImageUrl = input.imageUrl
     ? await copyImageToStorage(input.imageUrl, input.goodsNo, input.colorOption)
     : null
@@ -1384,8 +1392,11 @@ export async function registerGarment(
     key,
     value,
   }))
+
+  let measurementsFailed = false
   if (rows.length > 0) {
-    await supabase.from('garment_measurements').insert(rows)
+    const { error: measurementError } = await supabase.from('garment_measurements').insert(rows)
+    if (measurementError) measurementsFailed = true
   }
 
   if (input.fullSizeTable) {
@@ -1396,7 +1407,11 @@ export async function registerGarment(
     }
   }
 
-  return { id: garment.id, duplicate: Boolean(duplicateCount && duplicateCount > 0) }
+  return {
+    id: garment.id,
+    duplicate: Boolean(duplicateCount && duplicateCount > 0),
+    measurementsFailed,
+  }
 }
 ```
 
@@ -1439,15 +1454,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: '입력값이 올바르지 않습니다.' }, { status: 400 })
   }
 
+  let result
   try {
-    const { id, duplicate } = await registerGarment(supabase, user.id, 'owned', parsed.data)
-    return NextResponse.json(
-      { id, ...(duplicate ? { warning: '이미 옷장에 같은 상품·색상·사이즈가 있습니다.' } : {}) },
-      { status: 201 },
-    )
+    result = await registerGarment(supabase, user.id, 'owned', parsed.data)
   } catch {
     return NextResponse.json({ error: '옷장에 저장하지 못했습니다.' }, { status: 500 })
   }
+
+  if (result.measurementsFailed) {
+    // 실측만 실패한 경우 옷 자체는 남기고 알린다. 상세 화면에서 나중에 채울 수 있다.
+    return NextResponse.json(
+      { id: result.id, warning: '실측 정보를 저장하지 못했습니다.' },
+      { status: 207 },
+    )
+  }
+
+  return NextResponse.json(
+    {
+      id: result.id,
+      ...(result.duplicate ? { warning: '이미 옷장에 같은 상품·색상·사이즈가 있습니다.' } : {}),
+    },
+    { status: 201 },
+  )
 }
 ```
 
