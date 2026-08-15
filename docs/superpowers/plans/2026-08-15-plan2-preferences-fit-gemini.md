@@ -991,10 +991,11 @@ describe('scoreDeviation — 범위 안', () => {
 })
 
 describe('scoreDeviation — 경고 구간(허용편차 이내 초과)', () => {
-  it('범위를 벗어났지만 허용편차 이내면 가중치 × 1점이다', () => {
-    // 총장 허용편차 3.0, 가중치 2. 범위 [60,62] 밖으로 2cm 초과(64) → excess=2 <= 3 → 경고.
+  it('허용구간[lo-t, hi+t]을 벗어났지만 초과폭이 t 이내면 가중치 × 1점이다', () => {
+    // 총장 허용편차 t=3.0, 가중치 2. 범위 [60,62] → 허용구간 [57,65].
+    // 67은 허용구간 밖으로 2cm 초과(67-65=2 <= t=3) → 경고.
     const report = scoreDeviation(
-      { 총장: 64 },
+      { 총장: 67 },
       profile({ 총장: { ranges: [{ lo: 60, hi: 62 }] } }),
       'top',
     )
@@ -1003,14 +1004,14 @@ describe('scoreDeviation — 경고 구간(허용편차 이내 초과)', () => {
 })
 
 describe('scoreDeviation — 심각 구간(허용편차 초과)', () => {
-  it('허용편차를 넘겨 벗어나면 가중치 × 2점이다', () => {
-    // 68 → 범위[60,62] 밖으로 6cm 초과, 허용편차 3.0을 넘으므로 심각(가중치 2 × 2 = 4).
+  it('허용구간 밖으로 t보다 더 벗어나면 가중치 × 2점이다', () => {
+    // 허용구간 [57,65] 밖으로 5cm 초과(70-65=5 > t=3) → 심각(가중치 2 × 2 = 4).
     const report = scoreDeviation(
-      { 총장: 68 },
+      { 총장: 70 },
       profile({ 총장: { ranges: [{ lo: 60, hi: 62 }] } }),
       'top',
     )
-    expect(report.fields[0]).toMatchObject({ excess: 6, score: 4 })
+    expect(report.fields[0]).toMatchObject({ excess: 5, score: 4 })
   })
 })
 
