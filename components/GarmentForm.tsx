@@ -57,7 +57,12 @@ export function GarmentForm({ parsed, sourceUrl, onDone }: Props) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const parsedForSize = pastedSizeTable[size]
+  // 붙여넣은 표의 사이즈 라벨(예: "L")은 무신사 원문 그대로 보존하지만, 사용자가 이 입력칸에
+  // 소문자로 적어도("l") 매칭되도록 대소문자 구분 없이 비교한다.
+  const matchedSizeKey = Object.keys(pastedSizeTable).find(
+    (key) => key.toLowerCase() === size.trim().toLowerCase(),
+  )
+  const parsedForSize = matchedSizeKey ? pastedSizeTable[matchedSizeKey] : undefined
   const hasParsedForSize = Boolean(parsedForSize && Object.keys(parsedForSize).length > 0)
 
   function manualMeasurementsAsNumbers(): Record<string, number> {
@@ -88,7 +93,7 @@ export function GarmentForm({ parsed, sourceUrl, onDone }: Props) {
       colorOption: color.trim(),
       sizeOption: size.trim(),
       // 붙여넣은 표에 지금 선택한 사이즈 행이 있으면 그 값을, 없으면(붙여넣지 않았거나 행이 없으면) 수동 입력값을 쓴다.
-      measurements: hasParsedForSize ? parsedForSize : manualMeasurementsAsNumbers(),
+      measurements: hasParsedForSize && parsedForSize ? parsedForSize : manualMeasurementsAsNumbers(),
       fullSizeTable: hasFullPastedTable ? pastedSizeTable : null,
       manualFields,
     }
