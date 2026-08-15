@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import Image from 'next/image'
 import { CATEGORY_LABELS, type Category } from '@/lib/types'
 
@@ -14,7 +15,7 @@ export type GarmentCardData = {
 
 export function GarmentCard({ garment }: { garment: GarmentCardData }) {
   return (
-    <article className="overflow-hidden rounded-xl border">
+    <Link href={`/wardrobe/${garment.id}`} className="block overflow-hidden rounded-xl border">
       <div className="relative aspect-[3/4] bg-gray-100">
         {garment.image_url ? (
           <Image src={garment.image_url} alt={garment.name} fill className="object-cover" sizes="200px" />
@@ -31,6 +32,6 @@ export function GarmentCard({ garment }: { garment: GarmentCardData }) {
           {[garment.color_option, garment.size_option].filter(Boolean).join(' · ')}
         </p>
       </div>
-    </article>
+    </Link>
   )
 }

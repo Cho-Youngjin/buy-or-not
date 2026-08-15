@@ -398,12 +398,29 @@ export function DeleteGarmentButton({ garmentId }: { garmentId: string }) {
 import Image from 'next/image'
 import { notFound, redirect } from 'next/navigation'
 import { createServerSupabase } from '@/lib/supabase/server'
-import { CATEGORY_LABELS } from '@/lib/types'
+import { CATEGORY_LABELS, type Category, type FitTag, type WearFrequency } from '@/lib/types'
 import { MeasurementsTable } from '@/components/MeasurementsTable'
 import { PreferenceForm } from '@/components/PreferenceForm'
 import { DeleteGarmentButton } from '@/components/DeleteGarmentButton'
 
 type Props = { params: Promise<{ id: string }> }
+
+// 이 프로젝트는 Supabase 타입을 생성해두지 않아(계획 1부터 일관된 선택) select 결과가
+// any로 추론된다 — GarmentCardData(계획 1 Task 12)와 같은 이유로 명시적 타입을 달아 캐스팅한다.
+type GarmentDetail = {
+  id: string
+  name: string
+  brand: string | null
+  price: number | null
+  image_url: string | null
+  category: Category
+  color_option: string | null
+  size_option: string | null
+  rating: number | null
+  fit_tag: FitTag | null
+  wear_frequency: WearFrequency | null
+  garment_measurements: { key: string; value: number }[] | null
+}
 
 export default async function GarmentDetailPage({ params }: Props) {
   const supabase = await createServerSupabase()
@@ -415,7 +432,7 @@ export default async function GarmentDetailPage({ params }: Props) {
     .from('garments')
     .select('id, name, brand, price, image_url, category, color_option, size_option, rating, fit_tag, wear_frequency, garment_measurements(key, value)')
     .eq('id', id)
-    .single()
+    .single<GarmentDetail>()
 
   // RLS가 남의 옷이면 이 시점에 이미 null을 돌려준다 — 별도 소유자 검사가 필요 없다.
   if (!garment) notFound()
