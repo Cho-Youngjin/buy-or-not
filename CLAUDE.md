@@ -32,7 +32,7 @@ Solo side project for a job-hunting portfolio — not built for scale or multi-r
 
 ## Tech stack (per spec §4)
 
-Next.js 15 (App Router, TypeScript) · Tailwind CSS · Supabase (Postgres/Auth/Storage/RLS) · Google Gemini API (`gemini-2.5-flash`) · cheerio (HTML parsing) · Vitest · deployed on Vercel.
+Next.js 15 (App Router, TypeScript) · Tailwind CSS · Supabase (Postgres/Auth/Storage/RLS) · Google Gemini API (`gemini-3.5-flash` — 스펙 작성 시점엔 `gemini-2.5-flash`였으나, 계획 2 Task 10에서 신규 발급 API 키에 404가 나는 걸 확인해 교체) · cheerio (HTML parsing) · Vitest · deployed on Vercel.
 
 Node.js 20+, npm as package manager, TypeScript `strict: true` with no `any`.
 

@@ -2124,7 +2124,7 @@ git commit -m "feat: add purchase analysis screen and cart with buy promotion"
 2. "Create API key" 버튼을 누른다. 기존 Google Cloud 프로젝트가 있으면 골라도 되고, 없으면 새로 만들어도 된다(무료).
 3. 발급된 키를 복사한다 — 이 화면을 벗어나면 다시 볼 수 없으니 바로 다음 단계로 붙여넣는다.
 4. 프로젝트 루트의 `.env.local` 파일을 열고 `GEMINI_API_KEY=` 뒤에 붙여넣는다(`.env.local.example`에 이 태스크 Step 1에서 항목을 추가한다).
-5. `gemini-2.5-flash`는 무료 등급(rate limit 있음)으로 쓸 수 있다 — 결제 정보를 등록할 필요는 없다.
+5. `gemini-3.5-flash`(무료 등급, rate limit 있음)를 쓴다 — 결제 정보를 등록할 필요는 없다. `gemini-2.5-flash`는 신규 발급 키에서 404가 나서 쓸 수 없었다(Step 5 참고).
 
 **Files:**
 - Modify: `package.json` (`@google/genai` 추가)
@@ -2173,7 +2173,10 @@ export function getGeminiClient(): GoogleGenAI {
   return client
 }
 
-export const GEMINI_MODEL = 'gemini-2.5-flash'
+// gemini-2.5-flash는 신규 발급 API 키에서 404("no longer available to new users")를
+// 반환한다 — 스펙 작성 시점(2026-08-13) 이후 Google이 신규 사용자 대상 접근을 막았다.
+// 실제 이 키로 client.models.list()를 호출해 확인한 사용 가능한 flash 계열 중 하나로 바꿨다.
+export const GEMINI_MODEL = 'gemini-3.5-flash'
 ```
 
 - [ ] **Step 3: 실패하는 테스트 작성**
@@ -2187,7 +2190,7 @@ const generateContentMock = vi.fn()
 
 vi.mock('@/lib/gemini/client', () => ({
   getGeminiClient: () => ({ models: { generateContent: generateContentMock } }),
-  GEMINI_MODEL: 'gemini-2.5-flash',
+  GEMINI_MODEL: 'gemini-3.5-flash',
 }))
 
 beforeEach(() => {
@@ -2240,6 +2243,7 @@ Expected: FAIL — 모듈 없음
 `lib/ai/tagger.ts`:
 
 ```ts
+import { Type } from '@google/genai'
 import { getGeminiClient, GEMINI_MODEL } from '@/lib/gemini/client'
 
 export type AiTags = {
@@ -2253,20 +2257,23 @@ export type AiTags = {
   season: string[]
 }
 
+// responseSchema는 표준 JSON Schema가 아니라 Gemini 고유 포맷이다 — type 값은
+// 소문자 'object'가 아니라 Type.OBJECT 같은 대문자 상수여야 런타임에서 실제로 적용된다
+// (타입 자체는 SchemaUnion = Schema | unknown이라 소문자를 써도 컴파일은 통과하지만 틀린 스키마가 된다).
 const TAG_SCHEMA = {
-  type: 'object',
+  type: Type.OBJECT,
   properties: {
-    category: { type: 'string' },
-    color_name: { type: 'string' },
-    color_tone: { type: 'string' },
-    brightness: { type: 'string' },
-    pattern: { type: 'string' },
-    style_keywords: { type: 'array', items: { type: 'string' } },
-    formality: { type: 'integer' },
-    season: { type: 'array', items: { type: 'string' } },
+    category: { type: Type.STRING },
+    color_name: { type: Type.STRING },
+    color_tone: { type: Type.STRING },
+    brightness: { type: Type.STRING },
+    pattern: { type: Type.STRING },
+    style_keywords: { type: Type.ARRAY, items: { type: Type.STRING } },
+    formality: { type: Type.INTEGER },
+    season: { type: Type.ARRAY, items: { type: Type.STRING } },
   },
   required: ['category', 'color_name', 'color_tone', 'brightness', 'pattern', 'style_keywords', 'formality', 'season'],
-} as const
+}
 
 /**
  * 옷이 garments에 들어올 때 딱 한 번 이미지를 보내 스타일 태그를 받는다(스펙 §10-1).
@@ -2383,7 +2390,7 @@ const generateContentMock = vi.fn()
 
 vi.mock('@/lib/gemini/client', () => ({
   getGeminiClient: () => ({ models: { generateContent: generateContentMock } }),
-  GEMINI_MODEL: 'gemini-2.5-flash',
+  GEMINI_MODEL: 'gemini-3.5-flash',
 }))
 
 beforeEach(() => generateContentMock.mockReset())
@@ -2442,6 +2449,7 @@ Expected: FAIL — 모듈 없음
 `lib/ai/advisor.ts`:
 
 ```ts
+import { Type } from '@google/genai'
 import { getGeminiClient, GEMINI_MODEL } from '@/lib/gemini/client'
 import type { AiTags } from '@/lib/ai/tagger'
 import type { MatchSeverity } from '@/lib/verdict'
@@ -2463,16 +2471,16 @@ export type AdviceResult = {
 }
 
 const ADVICE_SCHEMA = {
-  type: 'object',
+  type: Type.OBJECT,
   properties: {
-    match_severity: { type: 'string', enum: ['ok', 'warn', 'bad'] },
-    size_feedback: { type: 'string' },
-    match_feedback: { type: 'string' },
-    price_feedback: { type: 'string' },
-    summary: { type: 'string' },
+    match_severity: { type: Type.STRING, enum: ['ok', 'warn', 'bad'] },
+    size_feedback: { type: Type.STRING },
+    match_feedback: { type: Type.STRING },
+    price_feedback: { type: Type.STRING },
+    summary: { type: Type.STRING },
   },
   required: ['match_severity', 'size_feedback', 'match_feedback', 'price_feedback', 'summary'],
-} as const
+}
 
 function buildPrompt(input: AdviceInput): string {
   return [
@@ -2556,6 +2564,7 @@ Expected: PASS, 3 passed
 
 ```ts
 import { getMatchAdvice } from '@/lib/ai/advisor'
+import { GEMINI_MODEL } from '@/lib/gemini/client'
 
 // ... report 계산 이후 ...
 
@@ -2596,7 +2605,7 @@ import { getMatchAdvice } from '@/lib/ai/advisor'
       fit_score: report.fitScore + matchPenalty,
       report,
       feedback: advice ?? { note: 'AI 코멘트를 만들지 못했습니다.' },
-      model: advice ? 'gemini-2.5-flash' : null,
+      model: advice ? GEMINI_MODEL : null,
       prompt_snapshot: advice ? { deviationSummary: report.fields, candidateTags: candidateGarment?.ai_tags } : null,
     })
     .select('id')

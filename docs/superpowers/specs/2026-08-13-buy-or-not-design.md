@@ -46,7 +46,7 @@
 | 프레임워크 | Next.js 15 App Router, TypeScript |
 | 스타일 | Tailwind CSS |
 | DB / 인증 / 스토리지 | Supabase (Postgres, Auth, Storage, RLS) |
-| AI | Google Gemini API (`gemini-2.5-flash`) |
+| AI | Google Gemini API (`gemini-3.5-flash`) |
 | HTML 파싱 | cheerio |
 | 테스트 | Vitest |
 | 배포 | Vercel |
@@ -200,7 +200,7 @@ PK `(garment_id, key)`.
 | fit_score | integer | 심각도 가중 합계 |
 | report | jsonb | 항목별 편차 리포트 (근거 표시용) |
 | feedback | jsonb | Gemini 생성 문장들 |
-| model | text | 예 `gemini-2.5-flash` |
+| model | text | 예 `gemini-3.5-flash` |
 | prompt_snapshot | jsonb | 재현·디버깅용 |
 | created_at | timestamptz | |
 
@@ -420,7 +420,7 @@ fit_score + match_penalty >= 5                  → skip
 
 ## 10. Gemini 연동
 
-모델은 `gemini-2.5-flash`. 두 지점에서 호출한다.
+모델은 `gemini-3.5-flash`(2026-08-13 스펙 작성 시점엔 `gemini-2.5-flash`였으나, 신규 발급 API 키로는 404가 나서 계획 2 Task 10에서 교체 — `docs/superpowers/plans/2026-08-15-plan2-preferences-fit-gemini.md` 참고). 두 지점에서 호출한다.
 
 ### 10-1. 등록 시 비전 태깅
 

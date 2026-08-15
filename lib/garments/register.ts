@@ -3,6 +3,7 @@ import { copyImageToStorage } from '@/lib/storage'
 import { mergeSizeTableIntoCache } from '@/lib/musinsa/cache'
 import { AUTO_PARSED_FIELDS, type SizeTable } from '@/lib/musinsa/types'
 import type { Category, GarmentStatus, ParseMode } from '@/lib/types'
+import { tagGarmentImage } from '@/lib/ai/tagger'
 
 export type RegisterGarmentInput = {
   goodsNo: string
@@ -107,6 +108,16 @@ export async function registerGarment(
       await mergeSizeTableIntoCache(input.goodsNo, input.fullSizeTable)
     } catch {
       // 무시 — 캐시는 다음 파싱 시도에서 다시 채워진다.
+    }
+  }
+
+  const finalImageUrl = storedImageUrl ?? input.imageUrl
+  if (finalImageUrl) {
+    // 태깅은 옷장 등록이든 장바구니 등록이든 딱 한 번만 한다(스펙 §10-1) — 실패해도
+    // 등록을 막지 않는다. ai_tags는 null로 남고, 이후 판단 시점에 "태그 없음"으로 처리된다.
+    const tags = await tagGarmentImage(finalImageUrl)
+    if (tags) {
+      await supabase.from('garments').update({ ai_tags: tags }).eq('id', garment.id)
     }
   }
 
