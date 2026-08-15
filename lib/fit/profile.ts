@@ -127,7 +127,7 @@ export async function fetchPreferenceProfile(
     .eq('owner_id', ownerId)
     .eq('status', 'owned')
     .eq('category', category)
-    .returns<GarmentRow[]>()
+    .overrideTypes<GarmentRow[], { merge: false }>()
 
   const garments: GarmentForProfile[] = (data ?? []).map((g) => ({
     rating: g.rating,

@@ -922,7 +922,7 @@ export async function fetchPreferenceProfile(
     .eq('owner_id', ownerId)
     .eq('status', 'owned')
     .eq('category', category)
-    .returns<GarmentRow[]>()
+    .overrideTypes<GarmentRow[], { merge: false }>()  // .returns()는 deprecated — overrideTypes로 대체
 
   const garments: GarmentForProfile[] = (data ?? []).map((g) => ({
     rating: g.rating,
@@ -1205,7 +1205,7 @@ describe('decideVerdict — 합계 기준', () => {
 
   it('합이 5 이상이면 skip이다', () => {
     expect(decideVerdict(3, false, 'warn')).toEqual({ verdict: 'skip', matchPenalty: 2 })
-    expect(decideVerdict(0, false, 'bad')).toEqual({ verdict: 'skip', matchPenalty: 4 })
+    expect(decideVerdict(1, false, 'bad')).toEqual({ verdict: 'skip', matchPenalty: 4 })
   })
 })
 
