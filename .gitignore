@@ -1,3 +1,9 @@
-# Claude Code local settings (per-machine permission overrides — not shared)
-.claude/settings.local.json
+# Local / AI tooling — keep off GitHub for this portfolio repo
+.agents/
+.claude/
+
+# Design reference kept only on the local machine
 DESIGN-cursor.md
+
+# Phase 0 Musinsa research scratch (HTML/JSON fixtures, not app code)
+.scratch_phase0/
