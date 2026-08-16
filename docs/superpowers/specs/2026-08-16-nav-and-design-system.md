@@ -42,6 +42,7 @@ Plan 1~3 구현으로 스펙(§14 Phase 0-8)의 기능은 전부 갖춰졌지만
 | `--color-border` | `#e4e0d6` | 헤어라인 보더 |
 | `--color-accent` | `#c1502e` | 주요 CTA, 활성 탭, 링크 (테라코타) |
 | `--color-accent-ink` | `#ffffff` | accent 배경 위 텍스트 |
+| `--color-danger` | `#b3261e` | 삭제 등 파괴적 동작 |
 
 - Cursor 마케팅 사이트(`DESIGN-cursor.md`)의 정확한 오렌지(`#f54e00`)는 그대로 쓰지 않는다 — "따뜻하고 채도 낮은 단일 포인트색" 원칙만 가져오고, 색 자체는 이 앱만의 테라코타로 구분한다 (브랜드 색 복제 회피).
 - 버튼 radius `8px`, 카드 radius `12px`. 그림자 대신 `border-(--color-border)` 헤어라인만 사용 (드롭섀도 금지).
@@ -77,7 +78,7 @@ Plan 1~3 구현으로 스펙(§14 Phase 0-8)의 기능은 전부 갖춰졌지만
 
 ### 4.3 `/mypage` 신설
 
-- 프로필: 구글 계정의 아바타 이미지 + 닉네임 표시 (Supabase Auth `user.user_metadata`에서 읽음, 별도 테이블 불필요).
+- 프로필: 아바타 이미지 + 닉네임 표시. `profiles.nickname` / `profiles.avatar_url`에서 읽는다 — 구글 로그인 시 `handle_new_user()` 트리거(마이그레이션 0003)가 이미 채워 두므로 Auth 메타데이터를 다시 읽을 필요가 없다. 아바타 호스트가 `lh3.googleusercontent.com`이므로 `next.config.ts`의 `images.remotePatterns`에 추가해야 `<Image />`로 표시된다.
 - 옷장 공개 토글: 기존 `ShareToggle` 컴포넌트를 `/wardrobe` 페이지에서 이곳으로 이동.
 - "핏 판단 설정 (준비 중)": 클릭 불가능한 비활성 항목. 2단계에서 실제 설정 화면으로 교체.
 - 로그아웃 버튼: `LogoutButton` 컴포넌트 신설 — `supabase.auth.signOut()` 호출 후 `/`로 리다이렉트. 이 앱에는 현재 로그아웃 기능이 전혀 없음 (grep으로 확인됨).
@@ -91,8 +92,13 @@ Plan 1~3 구현으로 스펙(§14 Phase 0-8)의 기능은 전부 갖춰졌지만
 `components/ui/`에 3개만 신설한다 (필요한 만큼만 — 과설계 방지):
 
 - **`Button`** (`variant: 'primary' | 'secondary'`): radius 8px, `active:scale-[0.98]`로 눌림 피드백. `LoginButton`, `LogoutButton`, `GarmentForm` 제출 버튼, `PreferenceForm`, `DeleteGarmentButton`, `ShareToggle`, `AnalyzeLinkBar`, `RecommendLinkBar`, `OutfitBuilder`의 버튼들이 이걸로 교체된다.
-- **`Card`**: radius 12px, `border-(--color-border)` 헤어라인만, 그림자 없음. `GarmentCard`, `CartItemCard`가 이걸 쓴다.
-- **`Pill`**: `VerdictBadge`(시맨틱 3색 유지), `ShareToggle`의 공개/비공개 배지, 카테고리 필터 칩이 이걸 쓴다.
+- **`CARD_SURFACE`** (클래스 상수): radius 12px, `border-border` 헤어라인만, 그림자 없음. `GarmentCard`, `CartItemCard`, `GarmentForm`, `OutfitBuilder`, 룩 카드, 공유 옷장 카드가 이걸 쓴다.
+- **`pillClass(tone)`** (클래스 생성 함수): `VerdictBadge`(시맨틱 3색 유지), `ShareToggle`의 공개/비공개 배지, 카테고리 필터 칩, 선호도 칩이 이걸 쓴다.
+- **`INPUT`** (클래스 상수): 입력칸 공통 스타일. `GarmentForm` 한 파일에서만 같은 조합이 10회 이상 반복되고 있었다.
+
+카드와 필은 컴포넌트가 아니라 클래스로 공유한다. 카드의 루트 엘리먼트가 `Link`(옷장 카드)·`article`(룩)·`form`(등록 폼)·`table`(실측표)로 제각각이고, 필도 `span`(판정 배지)과 `Link`(카테고리 칩)로 갈리기 때문에, 컴포넌트로 감싸면 의미 없는 래퍼 `div`가 한 겹씩 더 생긴다. 버튼은 루트가 항상 `<button>`이라 컴포넌트로 만든다.
+
+`Button`에는 스펙 초안의 `primary`/`secondary`에 더해 `danger`를 둔다 — 옷 삭제 확인 버튼이 파괴적 동작임을 색으로 알려야 하고, 이를 위해 `--color-danger` 토큰을 팔레트에 추가한다.
 
 프리미티브를 거치지 않는 나머지 텍스트/배경 클래스(`text-gray-500`, `bg-gray-100` 등)도 화면별로 전부 새 토큰(`text-ink-muted`, `bg-canvas` 등)으로 치환한다 — 옷장/상세/장바구니/살까말까/룩/공유옷장 전 화면 대상.
 
