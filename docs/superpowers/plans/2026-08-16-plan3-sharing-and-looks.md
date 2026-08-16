@@ -1148,7 +1148,9 @@ export default async function Image({ params }: { params: Promise<{ share_slug: 
           alignItems: 'center', justifyContent: 'center', background: '#111827', color: 'white',
         }}
       >
-        <div style={{ fontSize: 56, fontWeight: 700 }}>{nickname}님의 옷장</div>
+        {/* Satori(next/og)는 {표현식}과 리터럴 텍스트가 섞이면 자식 노드가 둘로 나뉜 것으로
+            보고 "명시적 display가 필요하다" 오류를 낸다 — 템플릿 리터럴로 합쳐 텍스트 노드 하나로 만든다. */}
+        <div style={{ fontSize: 56, fontWeight: 700 }}>{`${nickname}님의 옷장`}</div>
         <div style={{ fontSize: 28, marginTop: 20, color: '#9ca3af' }}>살까 말까</div>
       </div>
     ),

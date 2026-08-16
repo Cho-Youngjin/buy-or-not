@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import { createServerSupabase } from '@/lib/supabase/server'
@@ -8,6 +9,18 @@ import { CATEGORY_LABELS, type Category } from '@/lib/types'
 type Props = {
   params: Promise<{ share_slug: string }>
   searchParams: Promise<{ category?: string }>
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { share_slug } = await params
+  const supabase = await createServerSupabase()
+  const { data: profile } = await supabase.from('profiles').select('nickname').eq('share_slug', share_slug).single()
+  const nickname = profile?.nickname ?? '사용자'
+
+  return {
+    title: `${nickname}님의 옷장 - 살까 말까`,
+    description: `${nickname}님이 공유한 옷장을 구경해보세요.`,
+  }
 }
 
 type PublicGarment = {
