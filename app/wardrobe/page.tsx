@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createServerSupabase } from '@/lib/supabase/server'
 import { LinkInputBar } from '@/components/LinkInputBar'
 import { GarmentCard, type GarmentCardData } from '@/components/GarmentCard'
+import { ShareToggle } from '@/components/ShareToggle'
 import { CATEGORY_LABELS, type Category } from '@/lib/types'
 
 type Props = { searchParams: Promise<{ category?: string }> }
@@ -12,6 +13,12 @@ export default async function WardrobePage({ searchParams }: Props) {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('share_slug, is_wardrobe_public')
+    .eq('id', user.id)
+    .single()
 
   const { category } = await searchParams
 
@@ -33,6 +40,8 @@ export default async function WardrobePage({ searchParams }: Props) {
       <h1 className="text-2xl font-bold">내 옷장</h1>
 
       <LinkInputBar />
+
+      {profile && <ShareToggle shareSlug={profile.share_slug} initialIsPublic={profile.is_wardrobe_public} />}
 
       <nav className="flex flex-wrap gap-2">
         <FilterLink href="/wardrobe" label="전체" active={!category} />
