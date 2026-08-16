@@ -33,10 +33,10 @@ export default async function CartPage() {
 
   return (
     <main className="mx-auto max-w-2xl space-y-4 px-4 py-8">
-      <h1 className="text-2xl font-bold">장바구니</h1>
+      <h1 className="text-2xl font-medium tracking-tight text-ink">장바구니</h1>
 
       {items.length === 0 ? (
-        <p className="rounded-xl border border-dashed p-10 text-center text-gray-500">
+        <p className="rounded-card border border-dashed border-border p-10 text-center text-sm text-ink-muted">
           고민 중인 옷이 없습니다. &quot;살까 말까&quot;에서 링크를 넣어보세요.
         </p>
       ) : (

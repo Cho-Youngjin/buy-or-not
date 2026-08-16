@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import type { ParseResult } from '@/lib/musinsa/types'
 import { GarmentForm } from '@/components/GarmentForm'
+import { Button } from '@/components/ui/Button'
+import { INPUT } from '@/components/ui/styles'
 
 type Props = { wardrobeOwnerId: string }
 
@@ -42,15 +44,14 @@ export function RecommendLinkBar({ wardrobeOwnerId }: Props) {
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="추천하고 싶은 무신사 상품 링크를 붙여넣으세요"
-          className="flex-1 rounded-lg border px-4 py-2"
+          className={`${INPUT} flex-1`}
         />
-        <button type="submit" disabled={loading || url.trim().length === 0}
-          className="rounded-lg bg-black px-5 py-2 text-white disabled:bg-gray-300">
+        <Button type="submit" disabled={loading || url.trim().length === 0}>
           {loading ? '불러오는 중…' : '불러오기'}
-        </button>
+        </Button>
       </form>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
       {parsed && !done && (
         <GarmentForm
@@ -68,7 +69,7 @@ export function RecommendLinkBar({ wardrobeOwnerId }: Props) {
         />
       )}
 
-      {done && <p className="text-sm text-green-700">추천했습니다! 상대방의 장바구니에 담겼습니다.</p>}
+      {done && <p className="text-sm text-ink">추천했습니다! 상대방의 장바구니에 담겼습니다.</p>}
     </div>
   )
 }

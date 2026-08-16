@@ -5,6 +5,8 @@ import type { ParseResult } from '@/lib/musinsa/types'
 import { GarmentForm } from '@/components/GarmentForm'
 import { VerdictBadge } from '@/components/VerdictBadge'
 import { DeviationReport } from '@/components/DeviationReport'
+import { Button } from '@/components/ui/Button'
+import { INPUT, CARD_SURFACE } from '@/components/ui/styles'
 import type { Verdict } from '@/lib/verdict'
 
 type AnalyzeResult = {
@@ -50,15 +52,14 @@ export function AnalyzeLinkBar() {
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="구매를 고민 중인 무신사 상품 링크를 붙여넣으세요"
-          className="flex-1 rounded-lg border px-4 py-2"
+          className={`${INPUT} flex-1`}
         />
-        <button type="submit" disabled={loading || url.trim().length === 0}
-          className="rounded-lg bg-black px-5 py-2 text-white disabled:bg-gray-300">
+        <Button type="submit" disabled={loading || url.trim().length === 0}>
           {loading ? '불러오는 중…' : '불러오기'}
-        </button>
+        </Button>
       </form>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
       {parsed && !result && (
         <GarmentForm
@@ -71,7 +72,7 @@ export function AnalyzeLinkBar() {
       )}
 
       {result && (
-        <div className="space-y-3 rounded-xl border p-5">
+        <div className={`${CARD_SURFACE} space-y-3 p-5`}>
           <VerdictBadge verdict={result.verdict} />
           <DeviationReport status={result.report.status} fields={result.report.fields as never} feedback={result.feedback} />
         </div>

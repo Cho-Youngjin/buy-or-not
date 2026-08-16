@@ -5,6 +5,8 @@ import { CATEGORY_LABELS, type Category } from '@/lib/types'
 import { PARSEABLE_FIELDS, type ParseResult, type ParseableField, type SizeTable } from '@/lib/musinsa/types'
 import { STANDARD_KEYS } from '@/lib/musinsa/measurements'
 import { PasteSizeTableField } from '@/components/PasteSizeTableField'
+import { Button } from '@/components/ui/Button'
+import { INPUT, CARD_SURFACE } from '@/components/ui/styles'
 
 export type GarmentSubmitPayload = {
   goodsNo: string
@@ -127,31 +129,31 @@ export function GarmentForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border p-5">
+    <form onSubmit={handleSubmit} className={`${CARD_SURFACE} space-y-4 p-5`}>
       {manualFields.length > 0 && (
-        <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+        <p className="rounded-btn border border-border bg-canvas p-3 text-sm text-ink-muted">
           일부 정보를 자동으로 가져오지 못했습니다. 아래 표시된 칸만 채워주세요.
         </p>
       )}
 
       <Field label="상품명" manual={!f.name.ok}>
         <input value={name} onChange={(e) => setName(e.target.value)} readOnly={f.name.ok}
-          required className="w-full rounded border px-3 py-2 read-only:bg-gray-50" />
+          required className={INPUT} />
       </Field>
 
       <Field label="브랜드" manual={!f.brand.ok}>
         <input value={brand} onChange={(e) => setBrand(e.target.value)} readOnly={f.brand.ok}
-          className="w-full rounded border px-3 py-2 read-only:bg-gray-50" />
+          className={INPUT} />
       </Field>
 
       <Field label="가격" manual={!f.price.ok}>
         <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} readOnly={f.price.ok}
-          className="w-full rounded border px-3 py-2 read-only:bg-gray-50" />
+          className={INPUT} />
       </Field>
 
       <Field label="카테고리" manual={!f.category.ok}>
         <select value={category} onChange={(e) => setCategory(e.target.value as Category)}
-          className="w-full rounded border px-3 py-2">
+          className={INPUT}>
           {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
             <option key={value} value={value}>{label}</option>
           ))}
@@ -161,37 +163,37 @@ export function GarmentForm({
       <Field label="색상" manual={!f.options.ok}>
         {colors.length > 0 ? (
           <select value={color} onChange={(e) => setColor(e.target.value)}
-            required className="w-full rounded border px-3 py-2">
+            required className={INPUT}>
             {colors.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         ) : (
           <input value={color} onChange={(e) => setColor(e.target.value)} required
-            placeholder="예: 블랙" className="w-full rounded border px-3 py-2" />
+            placeholder="예: 블랙" className={INPUT} />
         )}
       </Field>
 
       <Field label="사이즈" manual={!f.options.ok}>
         {sizes.length > 0 ? (
           <select value={size} onChange={(e) => setSize(e.target.value)}
-            required className="w-full rounded border px-3 py-2">
+            required className={INPUT}>
             {sizes.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         ) : (
           <input value={size} onChange={(e) => setSize(e.target.value)} required
-            placeholder="예: L" className="w-full rounded border px-3 py-2" />
+            placeholder="예: L" className={INPUT} />
         )}
       </Field>
 
       <Field label="실측" manual>
         <PasteSizeTableField onParsed={setPastedSizeTable} />
         {hasParsedForSize ? (
-          <p className="text-sm text-green-700">
+          <p className="text-sm text-ink">
             {size || '선택한'} 사이즈 값이 자동으로 채워졌습니다: {Object.entries(parsedForSize!).map(([k, v]) => `${k} ${v}cm`).join(', ')}
           </p>
         ) : (
           <div className="grid grid-cols-3 gap-2">
             {[...STANDARD_KEYS].map((key) => (
-              <label key={key} className="text-xs">
+              <label key={key} className="text-xs text-ink-muted">
                 {key}
                 <input
                   type="number"
@@ -199,7 +201,7 @@ export function GarmentForm({
                   onChange={(e) =>
                     setManualMeasurements((prev) => ({ ...prev, [key]: e.target.value }))
                   }
-                  className="w-full rounded border px-2 py-1"
+                  className={`${INPUT} px-2 py-1`}
                 />
               </label>
             ))}
@@ -210,23 +212,22 @@ export function GarmentForm({
       {!f.imageUrl.ok && (
         <Field label="이미지 주소" manual>
           <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)}
-            placeholder="https://…" className="w-full rounded border px-3 py-2" />
+            placeholder="https://…" className={INPUT} />
         </Field>
       )}
 
       {noteField && (
         <Field label="코멘트" manual={false}>
           <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2}
-            placeholder="추천 이유를 남겨보세요 (선택)" className="w-full rounded border px-3 py-2" />
+            placeholder="추천 이유를 남겨보세요 (선택)" className={INPUT} />
         </Field>
       )}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
-      <button type="submit" disabled={submitting}
-        className="w-full rounded-lg bg-black py-3 text-white disabled:bg-gray-300">
+      <Button type="submit" disabled={submitting} className="w-full py-3">
         {submitting ? '처리 중…' : submitLabel}
-      </button>
+      </Button>
     </form>
   )
 }
@@ -234,9 +235,9 @@ export function GarmentForm({
 function Field({ label, manual, children }: { label: string; manual: boolean; children: React.ReactNode }) {
   return (
     <label className="block space-y-1">
-      <span className="text-sm font-medium">
+      <span className="text-sm font-medium text-ink">
         {label}
-        {manual && <span className="ml-2 text-xs text-amber-700">직접 입력</span>}
+        {manual && <span className="ml-2 text-xs text-accent">직접 입력</span>}
       </span>
       {children}
     </label>

@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { ParseResult } from '@/lib/musinsa/types'
 import { GarmentForm } from '@/components/GarmentForm'
+import { Button } from '@/components/ui/Button'
+import { INPUT } from '@/components/ui/styles'
 
 /**
  * 옷장 등록의 진입점. 링크를 붙여넣고 `/api/musinsa/parse`를 호출해 결과를 받은 뒤,
@@ -45,18 +47,14 @@ export function LinkInputBar() {
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="무신사 상품 링크를 붙여넣으세요"
-          className="flex-1 rounded-lg border px-4 py-2"
+          className={`${INPUT} flex-1`}
         />
-        <button
-          type="submit"
-          disabled={loading || url.trim().length === 0}
-          className="rounded-lg bg-black px-5 py-2 text-white disabled:bg-gray-300"
-        >
+        <Button type="submit" disabled={loading || url.trim().length === 0}>
           {loading ? '불러오는 중…' : '불러오기'}
-        </button>
+        </Button>
       </form>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
 
       {parsed && (
         <GarmentForm

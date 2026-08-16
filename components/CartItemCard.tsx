@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/Button'
+import { CARD_SURFACE, pillClass } from '@/components/ui/styles'
 
 export type CartItem = {
   id: string
@@ -29,20 +31,24 @@ export function CartItemCard({ item }: { item: CartItem }) {
   }
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border p-3">
-      <div className="relative h-16 w-12 shrink-0 overflow-hidden rounded bg-gray-100">
+    <div className={`${CARD_SURFACE} flex items-center gap-3 p-3`}>
+      <div className="relative h-16 w-12 shrink-0 overflow-hidden rounded-btn bg-canvas">
         {item.image_url && <Image src={item.image_url} alt={item.name} fill className="object-cover" sizes="48px" />}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{item.name}</p>
-        <p className="text-xs text-gray-500">
-          {item.brand} {item.latestVerdict && `· ${VERDICT_LABELS[item.latestVerdict]}`}
-        </p>
+        <p className="truncate text-sm font-medium text-ink">{item.name}</p>
+        <div className="mt-1 flex items-center gap-2">
+          <span className="truncate text-xs text-ink-muted">{item.brand}</span>
+          {item.latestVerdict && (
+            <span className={`${pillClass(item.latestVerdict)} px-2 py-0.5 text-xs`}>
+              {VERDICT_LABELS[item.latestVerdict]}
+            </span>
+          )}
+        </div>
       </div>
-      <button type="button" onClick={markAsBought} disabled={saving}
-        className="shrink-0 rounded-lg bg-black px-3 py-2 text-xs text-white disabled:bg-gray-300">
+      <Button onClick={markAsBought} disabled={saving} className="shrink-0 px-3 py-2 text-xs">
         {saving ? '처리 중…' : '샀어요'}
-      </button>
+      </Button>
     </div>
   )
 }

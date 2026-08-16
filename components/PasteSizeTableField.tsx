@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { parsePastedSizeTable } from '@/lib/musinsa/pasteSizeTable'
 import type { SizeTable } from '@/lib/musinsa/types'
+import { INPUT } from '@/components/ui/styles'
 
 type Props = {
   onParsed: (table: SizeTable) => void
@@ -34,7 +35,7 @@ export function PasteSizeTableField({ onParsed }: Props) {
 
   return (
     <div className="space-y-2">
-      <p className="text-sm text-gray-600">
+      <p className="text-sm text-ink-muted">
         무신사 &quot;사이즈&quot; 탭에서 표 전체(헤더 행부터 사이즈 행까지)를 드래그해 복사한 뒤 아래에 붙여넣어주세요.
       </p>
       <textarea
@@ -43,10 +44,10 @@ export function PasteSizeTableField({ onParsed }: Props) {
         onPaste={handlePaste}
         rows={4}
         placeholder="여기에 붙여넣기 (Ctrl+V)"
-        className="w-full rounded border px-3 py-2 font-mono text-sm"
+        className={`${INPUT} font-mono`}
       />
       {attempted && recognizedSizes.length > 0 && (
-        <ul className="rounded bg-green-50 p-2 text-sm text-green-800">
+        <ul className="rounded-btn border border-border bg-canvas p-2 text-sm text-ink">
           {recognizedSizes.map((size) => (
             <li key={size}>
               {size}: {Object.entries(table[size]).map(([key, value]) => `${key} ${value}`).join(', ')}
@@ -55,12 +56,12 @@ export function PasteSizeTableField({ onParsed }: Props) {
         </ul>
       )}
       {attempted && recognizedSizes.length === 0 && (
-        <p className="text-sm text-red-600">
+        <p className="text-sm text-danger">
           표를 인식하지 못했습니다. 다시 복사해서 붙여넣거나, 아래 직접 입력을 이용해주세요.
         </p>
       )}
       {unrecognizedHeaders.length > 0 && (
-        <p className="text-xs text-gray-500">인식 못 한 항목: {unrecognizedHeaders.join(', ')}</p>
+        <p className="text-xs text-ink-muted">인식 못 한 항목: {unrecognizedHeaders.join(', ')}</p>
       )}
     </div>
   )
