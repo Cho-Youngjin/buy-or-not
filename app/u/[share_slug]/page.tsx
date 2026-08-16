@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import { createServerSupabase } from '@/lib/supabase/server'
 import { RecommendLinkBar } from '@/components/RecommendLinkBar'
+import { OutfitBuilder } from '@/components/OutfitBuilder'
 import { CATEGORY_LABELS, type Category } from '@/lib/types'
 
 type Props = {
@@ -71,10 +72,17 @@ export default async function SharedWardrobePage({ params, searchParams }: Props
       )}
 
       {user && user.id !== profile.id && (
-        <section className="space-y-3 border-t pt-6">
-          <h2 className="text-lg font-semibold">추천하기</h2>
-          <RecommendLinkBar wardrobeOwnerId={profile.id} />
-        </section>
+        <>
+          <section className="space-y-3 border-t pt-6">
+            <h2 className="text-lg font-semibold">추천하기</h2>
+            <RecommendLinkBar wardrobeOwnerId={profile.id} />
+          </section>
+
+          <section className="space-y-3 border-t pt-6">
+            <h2 className="text-lg font-semibold">룩 만들기</h2>
+            <OutfitBuilder wardrobeOwnerId={profile.id} garments={garments ?? []} />
+          </section>
+        </>
       )}
     </main>
   )
