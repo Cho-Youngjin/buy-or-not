@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/Button'
+import { pillClass } from '@/components/ui/styles'
 
 type Props = {
   shareSlug: string
@@ -38,19 +40,15 @@ export function ShareToggle({ shareSlug, initialIsPublic }: Props) {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-lg border p-3 text-sm">
-      <button
-        type="button"
-        onClick={toggle}
-        disabled={saving}
-        className={`rounded-full px-4 py-1 ${isPublic ? 'bg-black text-white' : 'bg-gray-100'}`}
-      >
+    <div className="flex flex-wrap items-center gap-3">
+      <button type="button" onClick={toggle} disabled={saving}
+        className={`${pillClass(isPublic ? 'active' : 'neutral')} disabled:opacity-40`}>
         {isPublic ? '옷장 공개 중' : '옷장 비공개'}
       </button>
       {isPublic && (
-        <button type="button" onClick={copyLink} className="text-blue-600 underline">
-          {copied ? '복사됨!' : '공유 링크 복사'}
-        </button>
+        <Button variant="secondary" onClick={copyLink}>
+          {copied ? '복사됨' : '공유 링크 복사'}
+        </Button>
       )}
     </div>
   )
