@@ -129,3 +129,56 @@ describe('analyses', () => {
     expect(error).not.toBeNull()
   })
 })
+
+describe('outfits', () => {
+  let bobGarmentId: string
+  let outfitId: string
+
+  beforeAll(async () => {
+    const { data, error } = await bob.client
+      .from('garments')
+      .insert({ owner_id: bob.id, name: '밥의 셔츠', category: 'top', status: 'owned' })
+      .select('id')
+      .single()
+    if (error) throw error
+    bobGarmentId = data.id
+  })
+
+  it('공개 옷장이면 옷장 주인이 아닌 사람도 룩을 만들 수 있다', async () => {
+    // alice는 앞선 '공개 옷장' describe에서 이미 is_wardrobe_public=true로 바뀌어 있다.
+    const { data, error } = await bob.client
+      .from('outfits')
+      .insert({ wardrobe_owner_id: alice.id, author_id: bob.id, title: '가을 코디' })
+      .select('id')
+      .single()
+    expect(error).toBeNull()
+    outfitId = data!.id
+  })
+
+  it('룩에는 그 옷장 소유가 아닌 옷을 넣을 수 없다', async () => {
+    const { error } = await bob.client
+      .from('outfit_items')
+      .insert({ outfit_id: outfitId, garment_id: bobGarmentId })
+    expect(error).not.toBeNull()
+  })
+
+  it('그 옷장 소유의 옷은 넣을 수 있다', async () => {
+    const { error } = await bob.client
+      .from('outfit_items')
+      .insert({ outfit_id: outfitId, garment_id: aliceGarmentId })
+    expect(error).toBeNull()
+  })
+
+  it('비공개 옷장으로는(자기 자신이 대상이어도) 룩을 만들 수 없다', async () => {
+    // bob 본인은 공개로 전환한 적이 없으므로 is_wardrobe_public=false다.
+    const { error } = await bob.client
+      .from('outfits')
+      .insert({ wardrobe_owner_id: bob.id, author_id: bob.id, title: '내 룩' })
+    expect(error).not.toBeNull()
+  })
+
+  it('옷장 주인은 남이 만들어 준 룩을 삭제할 수 있다', async () => {
+    const { data } = await alice.client.from('outfits').delete().eq('id', outfitId).select()
+    expect(data?.length).toBe(1)
+  })
+})
