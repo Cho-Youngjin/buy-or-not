@@ -1,9 +1,12 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import { createServerSupabase } from '@/lib/supabase/server'
 import { RecommendLinkBar } from '@/components/RecommendLinkBar'
 import { OutfitBuilder } from '@/components/OutfitBuilder'
+import { PublicHeader } from '@/components/nav/PublicHeader'
+import { CARD_SURFACE, pillClass } from '@/components/ui/styles'
 import { CATEGORY_LABELS, type Category } from '@/lib/types'
 
 type Props = {
@@ -64,49 +67,51 @@ export default async function SharedWardrobePage({ params, searchParams }: Props
   const { data: garments } = await query.overrideTypes<PublicGarment[], { merge: false }>()
 
   return (
-    <main className="mx-auto max-w-4xl space-y-8 px-4 py-8">
-      <h1 className="text-2xl font-bold">{profile.nickname ?? '사용자'}님의 옷장</h1>
+    <>
+      <PublicHeader isLoggedIn={Boolean(user)} />
+      <main className="mx-auto max-w-4xl space-y-8 px-4 py-8">
+        <h1 className="text-2xl font-medium tracking-tight text-ink">{profile.nickname ?? '사용자'}님의 옷장</h1>
 
-      <nav className="flex flex-wrap gap-2">
-        <FilterLink href={`/u/${share_slug}`} label="전체" active={!category} />
-        {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
-          <FilterLink key={value} href={`/u/${share_slug}?category=${value}`} label={label} active={category === value} />
-        ))}
-      </nav>
+        <nav className="flex flex-wrap gap-2">
+          <FilterLink href={`/u/${share_slug}`} label="전체" active={!category} />
+          {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
+            <FilterLink key={value} href={`/u/${share_slug}?category=${value}`} label={label} active={category === value} />
+          ))}
+        </nav>
 
-      {!garments || garments.length === 0 ? (
-        <p className="rounded-xl border border-dashed p-10 text-center text-gray-500">
-          아직 등록된 옷이 없습니다.
-        </p>
-      ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-          {garments.map((garment) => <PublicGarmentCard key={garment.id} garment={garment} />)}
-        </div>
-      )}
+        {!garments || garments.length === 0 ? (
+          <p className="rounded-card border border-dashed border-border p-10 text-center text-sm text-ink-muted">
+            아직 등록된 옷이 없습니다.
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+            {garments.map((garment) => <PublicGarmentCard key={garment.id} garment={garment} />)}
+          </div>
+        )}
 
-      {user && user.id !== profile.id && (
-        <>
-          <section className="space-y-3 border-t pt-6">
-            <h2 className="text-lg font-semibold">추천하기</h2>
-            <RecommendLinkBar wardrobeOwnerId={profile.id} />
-          </section>
+        {user && user.id !== profile.id && (
+          <>
+            <section className="space-y-3 border-t border-border pt-6">
+              <h2 className="text-lg font-medium text-ink">추천하기</h2>
+              <RecommendLinkBar wardrobeOwnerId={profile.id} />
+            </section>
 
-          <section className="space-y-3 border-t pt-6">
-            <h2 className="text-lg font-semibold">룩 만들기</h2>
-            <OutfitBuilder wardrobeOwnerId={profile.id} garments={garments ?? []} />
-          </section>
-        </>
-      )}
-    </main>
+            <section className="space-y-3 border-t border-border pt-6">
+              <h2 className="text-lg font-medium text-ink">룩 만들기</h2>
+              <OutfitBuilder wardrobeOwnerId={profile.id} garments={garments ?? []} />
+            </section>
+          </>
+        )}
+      </main>
+    </>
   )
 }
 
 function FilterLink({ href, label, active }: { href: string; label: string; active: boolean }) {
   return (
-    <a href={href}
-      className={`rounded-full border px-4 py-1 text-sm ${active ? 'bg-black text-white' : 'bg-white'}`}>
+    <Link href={href} className={pillClass(active ? 'active' : 'neutral')}>
       {label}
-    </a>
+    </Link>
   )
 }
 
@@ -114,18 +119,18 @@ function FilterLink({ href, label, active }: { href: string; label: string; acti
 // 방문자는 자기 것이 아닌 옷을 고칠 수 없어야 하고, 그 페이지는 비로그인 접근 시 리다이렉트된다.
 function PublicGarmentCard({ garment }: { garment: PublicGarment }) {
   return (
-    <article className="overflow-hidden rounded-xl border">
-      <div className="relative aspect-[3/4] bg-gray-100">
+    <article className={`${CARD_SURFACE} overflow-hidden`}>
+      <div className="relative aspect-[3/4] bg-canvas">
         {garment.image_url ? (
           <Image src={garment.image_url} alt={garment.name} fill className="object-cover" sizes="200px" />
         ) : (
-          <div className="flex h-full items-center justify-center text-sm text-gray-400">이미지 없음</div>
+          <div className="flex h-full items-center justify-center text-sm text-ink-muted">이미지 없음</div>
         )}
       </div>
       <div className="space-y-1 p-3">
-        <p className="text-xs text-gray-500">{garment.brand ?? CATEGORY_LABELS[garment.category]}</p>
-        <h3 className="line-clamp-2 text-sm font-medium">{garment.name}</h3>
-        <p className="text-xs text-gray-600">
+        <p className="text-xs text-ink-muted">{garment.brand ?? CATEGORY_LABELS[garment.category]}</p>
+        <h3 className="line-clamp-2 text-sm font-medium text-ink">{garment.name}</h3>
+        <p className="text-xs text-ink-muted">
           {[garment.color_option, garment.size_option].filter(Boolean).join(' · ')}
         </p>
       </div>
