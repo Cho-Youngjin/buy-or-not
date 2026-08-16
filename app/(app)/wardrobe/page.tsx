@@ -1,7 +1,9 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createServerSupabase } from '@/lib/supabase/server'
 import { LinkInputBar } from '@/components/LinkInputBar'
 import { GarmentCard, type GarmentCardData } from '@/components/GarmentCard'
+import { pillClass } from '@/components/ui/styles'
 import { CATEGORY_LABELS, type Category } from '@/lib/types'
 
 type Props = { searchParams: Promise<{ category?: string }> }
@@ -30,7 +32,7 @@ export default async function WardrobePage({ searchParams }: Props) {
 
   return (
     <main className="mx-auto max-w-4xl space-y-6 px-4 py-8">
-      <h1 className="text-2xl font-bold">내 옷장</h1>
+      <h1 className="text-2xl font-medium tracking-tight text-ink">내 옷장</h1>
 
       <LinkInputBar />
 
@@ -42,7 +44,7 @@ export default async function WardrobePage({ searchParams }: Props) {
       </nav>
 
       {!garments || garments.length === 0 ? (
-        <p className="rounded-xl border border-dashed p-10 text-center text-gray-500">
+        <p className="rounded-card border border-dashed border-border p-10 text-center text-sm text-ink-muted">
           아직 등록한 옷이 없습니다. 위에 무신사 상품 링크를 붙여넣어 첫 옷을 추가해 보세요.
         </p>
       ) : (
@@ -58,9 +60,8 @@ export default async function WardrobePage({ searchParams }: Props) {
 
 function FilterLink({ href, label, active }: { href: string; label: string; active: boolean }) {
   return (
-    <a href={href}
-      className={`rounded-full border px-4 py-1 text-sm ${active ? 'bg-black text-white' : 'bg-white'}`}>
+    <Link href={href} className={pillClass(active ? 'active' : 'neutral')}>
       {label}
-    </a>
+    </Link>
   )
 }

@@ -1,5 +1,7 @@
 import Image from 'next/image'
+import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
+import { ArrowLeft } from '@phosphor-icons/react/ssr'
 import { createServerSupabase } from '@/lib/supabase/server'
 import { CATEGORY_LABELS, type Category, type FitTag, type WearFrequency } from '@/lib/types'
 import { MeasurementsTable } from '@/components/MeasurementsTable'
@@ -44,28 +46,34 @@ export default async function GarmentDetailPage({ params }: Props) {
 
   return (
     <main className="mx-auto max-w-2xl space-y-6 px-4 py-8">
-      <div className="relative aspect-[3/4] w-full max-w-sm overflow-hidden rounded-xl bg-gray-100">
+      {/* 어떤 경로로 들어왔든 항상 옷장 목록으로 돌아가게 고정 링크로 둔다 — 브라우저 뒤로가기와 달리 동작이 일정하다. */}
+      <Link href="/wardrobe" className="inline-flex items-center gap-1 text-sm text-ink-muted transition hover:text-ink">
+        <ArrowLeft size={16} />
+        옷장으로
+      </Link>
+
+      <div className="relative aspect-[3/4] w-full max-w-sm overflow-hidden rounded-xl bg-canvas">
         {garment.image_url && (
           <Image src={garment.image_url} alt={garment.name} fill className="object-cover" sizes="400px" />
         )}
       </div>
 
       <div>
-        <p className="text-sm text-gray-500">{garment.brand ?? CATEGORY_LABELS[garment.category]}</p>
-        <h1 className="text-xl font-bold">{garment.name}</h1>
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-ink-muted">{garment.brand ?? CATEGORY_LABELS[garment.category]}</p>
+        <h1 className="text-xl font-medium tracking-tight text-ink">{garment.name}</h1>
+        <p className="text-sm text-ink-muted">
           {[garment.color_option, garment.size_option].filter(Boolean).join(' · ')}
           {garment.price ? ` · ${garment.price.toLocaleString()}원` : ''}
         </p>
       </div>
 
       <section>
-        <h2 className="mb-2 text-sm font-semibold text-gray-700">실측</h2>
+        <h2 className="mb-2 text-sm font-medium text-ink">실측</h2>
         <MeasurementsTable measurements={measurements} />
       </section>
 
       <section>
-        <h2 className="mb-2 text-sm font-semibold text-gray-700">선호도</h2>
+        <h2 className="mb-2 text-sm font-medium text-ink">선호도</h2>
         <PreferenceForm
           garmentId={garment.id}
           initialRating={garment.rating}

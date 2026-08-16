@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { CATEGORY_LABELS, type Category } from '@/lib/types'
+import { CARD_SURFACE } from '@/components/ui/styles'
 
 export type GarmentCardData = {
   id: string
@@ -15,20 +16,23 @@ export type GarmentCardData = {
 
 export function GarmentCard({ garment }: { garment: GarmentCardData }) {
   return (
-    <Link href={`/wardrobe/${garment.id}`} className="block overflow-hidden rounded-xl border">
-      <div className="relative aspect-[3/4] bg-gray-100">
+    <Link
+      href={`/wardrobe/${garment.id}`}
+      className={`${CARD_SURFACE} block overflow-hidden transition hover:border-accent`}
+    >
+      <div className="relative aspect-[3/4] bg-canvas">
         {garment.image_url ? (
           <Image src={garment.image_url} alt={garment.name} fill className="object-cover" sizes="200px" />
         ) : (
-          <div className="flex h-full items-center justify-center text-sm text-gray-400">
+          <div className="flex h-full items-center justify-center text-sm text-ink-muted">
             이미지 없음
           </div>
         )}
       </div>
       <div className="space-y-1 p-3">
-        <p className="text-xs text-gray-500">{garment.brand ?? CATEGORY_LABELS[garment.category]}</p>
-        <h3 className="line-clamp-2 text-sm font-medium">{garment.name}</h3>
-        <p className="text-xs text-gray-600">
+        <p className="text-xs text-ink-muted">{garment.brand ?? CATEGORY_LABELS[garment.category]}</p>
+        <h3 className="line-clamp-2 text-sm font-medium text-ink">{garment.name}</h3>
+        <p className="text-xs text-ink-muted">
           {[garment.color_option, garment.size_option].filter(Boolean).join(' · ')}
         </p>
       </div>

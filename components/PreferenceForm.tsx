@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { FitTag, WearFrequency } from '@/lib/types'
+import { pillClass } from '@/components/ui/styles'
 
 const FIT_TAG_LABELS: Record<FitTag, string> = { tight: '작음', just: '딱맞음', loose: '큼' }
 const WEAR_FREQUENCY_LABELS: Record<WearFrequency, string> = {
@@ -40,7 +41,7 @@ export function PreferenceForm({ garmentId, initialRating, initialFitTag, initia
   return (
     <div className="space-y-4">
       <div>
-        <p className="mb-1 text-sm font-medium">별점</p>
+        <p className="mb-1 text-sm font-medium text-ink">별점</p>
         <div className="flex gap-1">
           {[1, 2, 3, 4, 5].map((n) => (
             <button
@@ -48,7 +49,7 @@ export function PreferenceForm({ garmentId, initialRating, initialFitTag, initia
               type="button"
               disabled={saving}
               onClick={() => { setRating(n); save({ rating: n }) }}
-              className={`text-2xl ${rating != null && n <= rating ? 'text-amber-400' : 'text-gray-300'}`}
+              className={`text-2xl transition ${rating != null && n <= rating ? 'text-accent' : 'text-border'}`}
               aria-label={`${n}점`}
             >
               ★
@@ -58,7 +59,7 @@ export function PreferenceForm({ garmentId, initialRating, initialFitTag, initia
       </div>
 
       <div>
-        <p className="mb-1 text-sm font-medium">핏</p>
+        <p className="mb-1 text-sm font-medium text-ink">핏</p>
         <div className="flex gap-2">
           {(Object.keys(FIT_TAG_LABELS) as FitTag[]).map((tag) => (
             <button
@@ -66,7 +67,7 @@ export function PreferenceForm({ garmentId, initialRating, initialFitTag, initia
               type="button"
               disabled={saving}
               onClick={() => { setFitTag(tag); save({ fitTag: tag }) }}
-              className={`rounded-full border px-3 py-1 text-sm ${fitTag === tag ? 'bg-black text-white' : 'bg-white'}`}
+              className={`${pillClass(fitTag === tag ? 'active' : 'neutral')} disabled:opacity-40`}
             >
               {FIT_TAG_LABELS[tag]}
             </button>
@@ -75,7 +76,7 @@ export function PreferenceForm({ garmentId, initialRating, initialFitTag, initia
       </div>
 
       <div>
-        <p className="mb-1 text-sm font-medium">착용 빈도</p>
+        <p className="mb-1 text-sm font-medium text-ink">착용 빈도</p>
         <div className="flex gap-2">
           {(Object.keys(WEAR_FREQUENCY_LABELS) as WearFrequency[]).map((freq) => (
             <button
@@ -83,7 +84,7 @@ export function PreferenceForm({ garmentId, initialRating, initialFitTag, initia
               type="button"
               disabled={saving}
               onClick={() => { setWearFrequency(freq); save({ wearFrequency: freq }) }}
-              className={`rounded-full border px-3 py-1 text-sm ${wearFrequency === freq ? 'bg-black text-white' : 'bg-white'}`}
+              className={`${pillClass(wearFrequency === freq ? 'active' : 'neutral')} disabled:opacity-40`}
             >
               {WEAR_FREQUENCY_LABELS[freq]}
             </button>
