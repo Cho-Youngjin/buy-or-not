@@ -1,6 +1,7 @@
 'use client'
 
 import { createBrowserSupabase } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/Button'
 
 export function LoginButton() {
   async function signIn() {
@@ -12,11 +13,8 @@ export function LoginButton() {
   }
 
   return (
-    <button
-      onClick={signIn}
-      className="rounded-lg bg-black px-6 py-3 text-white hover:bg-gray-800"
-    >
+    <Button onClick={signIn} className="px-6 py-3">
       구글로 시작하기
-    </button>
+    </Button>
   )
 }

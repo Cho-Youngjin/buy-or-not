@@ -1,26 +1,36 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * 색·모서리 토큰. 값이 리터럴이므로 inline 없이 @theme에 둔다.
+ * Tailwind v4는 --color-x를 bg-x, text-x, border-x로, --radius-x를 rounded-x로 자동 노출한다.
+ * 새 색이 필요해 보이면 여기 추가하고, 컴포넌트에 하드코딩하지 않는다.
+ */
+@theme {
+  --color-canvas: #f7f5f0;
+  --color-surface: #ffffff;
+  --color-ink: #28261f;
+  --color-ink-muted: #8a8677;
+  --color-border: #e4e0d6;
+  --color-accent: #c1502e;
+  --color-accent-ink: #ffffff;
+  --color-danger: #b3261e;
+
+  --radius-btn: 8px;
+  --radius-card: 12px;
 }
 
+/*
+ * 폰트는 next/font가 <html>에 심는 CSS 변수를 가리켜야 하므로 inline이 필요하다
+ * (inline이 없으면 Tailwind가 var()를 한 겹 더 감싸 폰트 변수 해석이 어긋난다).
+ */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  /* 기존 코드는 여기서 Arial을 강제해 레이아웃이 로드한 Geist를 무력화하고 있었다. */
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
