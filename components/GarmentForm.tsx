@@ -29,6 +29,10 @@ type Props = {
   submitEndpoint: string
   submitLabel: string
   onSubmitted: (result: Record<string, unknown>) => void
+  /** 추천 등록(RecommendLinkBar)에서만 켠다 — 코멘트 입력칸을 추가로 보여준다. */
+  noteField?: boolean
+  /** 요청 바디에 합쳐 보낼 필드(예: wardrobeOwnerId). 옷장 등록·구매 판단에서는 비워둔다. */
+  extraBody?: Record<string, unknown>
 }
 
 /**
@@ -38,7 +42,9 @@ type Props = {
  * 옷장 등록(LinkInputBar)과 구매 판단(AnalyzeLinkBar)이 이 폼을 그대로 공유한다 — 파싱·검증 UX가
  * 갈라지면 무신사 개편 대응이나 실측 입력 로직을 두 곳에서 따로 관리해야 한다.
  */
-export function GarmentForm({ parsed, sourceUrl, submitEndpoint, submitLabel, onSubmitted }: Props) {
+export function GarmentForm({
+  parsed, sourceUrl, submitEndpoint, submitLabel, onSubmitted, noteField, extraBody,
+}: Props) {
   const f = parsed.fields
 
   const manualFields = PARSEABLE_FIELDS.filter((key) => !f[key].ok)
@@ -57,6 +63,7 @@ export function GarmentForm({ parsed, sourceUrl, submitEndpoint, submitLabel, on
   const [pastedSizeTable, setPastedSizeTable] = useState<SizeTable>({})
   const [manualMeasurements, setManualMeasurements] = useState<Record<string, string>>({})
 
+  const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -101,10 +108,13 @@ export function GarmentForm({ parsed, sourceUrl, submitEndpoint, submitLabel, on
       manualFields,
     }
 
+    const body: Record<string, unknown> = { ...payload, ...extraBody }
+    if (noteField) body.note = note.trim() || null
+
     const response = await fetch(submitEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(body),
     })
     setSubmitting(false)
 
@@ -201,6 +211,13 @@ export function GarmentForm({ parsed, sourceUrl, submitEndpoint, submitLabel, on
         <Field label="이미지 주소" manual>
           <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)}
             placeholder="https://…" className="w-full rounded border px-3 py-2" />
+        </Field>
+      )}
+
+      {noteField && (
+        <Field label="코멘트" manual={false}>
+          <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2}
+            placeholder="추천 이유를 남겨보세요 (선택)" className="w-full rounded border px-3 py-2" />
         </Field>
       )}
 

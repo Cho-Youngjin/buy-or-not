@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import { createServerSupabase } from '@/lib/supabase/server'
+import { RecommendLinkBar } from '@/components/RecommendLinkBar'
 import { CATEGORY_LABELS, type Category } from '@/lib/types'
 
 type Props = {
@@ -67,6 +68,13 @@ export default async function SharedWardrobePage({ params, searchParams }: Props
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
           {garments.map((garment) => <PublicGarmentCard key={garment.id} garment={garment} />)}
         </div>
+      )}
+
+      {user && user.id !== profile.id && (
+        <section className="space-y-3 border-t pt-6">
+          <h2 className="text-lg font-semibold">추천하기</h2>
+          <RecommendLinkBar wardrobeOwnerId={profile.id} />
+        </section>
       )}
     </main>
   )

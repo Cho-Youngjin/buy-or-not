@@ -18,6 +18,9 @@ export type RegisterGarmentInput = {
   measurements: Record<string, number>
   fullSizeTable: SizeTable | null
   manualFields: string[]
+  /** 친구 추천으로 등록될 때만 채워진다(계획 3 Task 3). 옷장 등록·구매 판단에서는 비운다. */
+  recommendedBy?: string
+  note?: string | null
 }
 
 export type RegisterGarmentResult = {
@@ -82,6 +85,8 @@ export async function registerGarment(
       color_option: input.colorOption,
       size_option: input.sizeOption,
       parse_mode: computeParseMode(input.manualFields),
+      recommended_by: input.recommendedBy ?? null,
+      note: input.note ?? null,
     })
     .select('id')
     .single()
