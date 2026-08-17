@@ -24,6 +24,7 @@ export function RecommendLinkBar({ wardrobeOwnerId }: Props) {
           submitLabel="추천하기"
           noteField
           extraBody={{ wardrobeOwnerId }}
+          onCancel={parse.reset}
           onSubmitted={() => {
             parse.reset()
             setDone(true)

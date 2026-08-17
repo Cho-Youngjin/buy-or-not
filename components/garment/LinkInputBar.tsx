@@ -24,6 +24,7 @@ export function LinkInputBar() {
           sourceUrl={parse.url}
           submitEndpoint="/api/garments"
           submitLabel="옷장에 넣기"
+          onCancel={parse.reset}
           onSubmitted={() => {
             parse.reset()
             router.refresh()

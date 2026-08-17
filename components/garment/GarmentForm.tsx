@@ -36,6 +36,8 @@ type Props = {
   noteField?: boolean
   /** 요청 바디에 합쳐 보낼 필드(예: wardrobeOwnerId). 옷장 등록·구매 판단에서는 비워둔다. */
   extraBody?: Record<string, unknown>
+  /** 넘기면 폼 우측 상단에 "접기" 버튼이 생긴다. 링크를 잘못 넣었을 때 폼을 닫는 용도. */
+  onCancel?: () => void
 }
 
 /**
@@ -46,7 +48,7 @@ type Props = {
  * 갈라지면 무신사 개편 대응이나 실측 입력 로직을 두 곳에서 따로 관리해야 한다.
  */
 export function GarmentForm({
-  parsed, sourceUrl, submitEndpoint, submitLabel, onSubmitted, noteField, extraBody,
+  parsed, sourceUrl, submitEndpoint, submitLabel, onSubmitted, noteField, extraBody, onCancel,
 }: Props) {
   const f = parsed.fields
 
@@ -137,6 +139,22 @@ export function GarmentForm({
 
   return (
     <form onSubmit={handleSubmit} className={`${CARD_SURFACE} space-y-4 p-5`}>
+      {/*
+        type="button"이 반드시 필요하다: <form> 안의 <button>은 type을 안 주면 submit이 기본값이라,
+        접기를 누르는 순간 폼이 제출돼 버린다.
+      */}
+      {onCancel && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="text-sm text-ink-muted underline transition hover:text-ink"
+          >
+            접기
+          </button>
+        </div>
+      )}
+
       {manualFields.length > 0 && (
         <p className="rounded-btn border border-border bg-canvas p-3 text-sm text-ink-muted">
           일부 정보를 자동으로 가져오지 못했습니다. 아래 표시된 칸만 채워주세요.

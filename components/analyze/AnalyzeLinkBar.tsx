@@ -31,6 +31,7 @@ export function AnalyzeLinkBar() {
           sourceUrl={parse.url}
           submitEndpoint="/api/analyze"
           submitLabel="판단하기"
+          onCancel={parse.reset}
           onSubmitted={(data) => setResult(data as AnalyzeResult)}
         />
       )}
