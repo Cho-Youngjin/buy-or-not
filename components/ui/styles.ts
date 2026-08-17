@@ -21,9 +21,10 @@ const PILL_TONES: Record<PillTone, string> = {
   neutral: 'border-border bg-surface text-ink-muted',
   active: 'border-accent bg-accent text-accent-ink',
   // buy/caution/skip은 판정을 색으로 구분해야 해서 "액센트 1개" 원칙의 예외다(계획 서두 참고).
-  buy: 'border-transparent bg-[#e3ede1] text-[#2f5d3a]',
-  caution: 'border-transparent bg-[#f4ebd8] text-[#8a6320]',
-  skip: 'border-transparent bg-[#f5e0dd] text-[#8f2f26]',
+  // 하드코딩된 hex 대신 @theme 토큰을 쓴다 — 다크모드에서 이 값들도 같이 바뀌어야 한다(계획 15).
+  buy: 'border-transparent bg-buy-bg text-buy-text',
+  caution: 'border-transparent bg-caution-bg text-caution-text',
+  skip: 'border-transparent bg-skip-bg text-skip-text',
 }
 
 /** 필 모양 배지/칩의 클래스를 만든다. 배지는 span, 카테고리 칩은 Link라 컴포넌트로 묶지 않았다. */

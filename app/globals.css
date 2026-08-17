@@ -15,6 +15,15 @@
   --color-accent-ink: #ffffff;
   --color-danger: #b3261e;
 
+  /* 판정 배지 3색. 예전엔 components/ui/styles.ts에 하드코딩된 hex였는데, 다크모드에서
+     이 색들도 같이 바뀌어야 해서 다른 색처럼 토큰으로 옮겼다(계획 15). */
+  --color-buy-bg: #e3ede1;
+  --color-buy-text: #2f5d3a;
+  --color-caution-bg: #f4ebd8;
+  --color-caution-text: #8a6320;
+  --color-skip-bg: #f5e0dd;
+  --color-skip-text: #8f2f26;
+
   --radius-btn: 8px;
   --radius-card: 12px;
 }
@@ -33,4 +42,48 @@ body {
   color: var(--color-ink);
   /* 기존 코드는 여기서 Arial을 강제해 레이아웃이 로드한 Geist를 무력화하고 있었다. */
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/*
+ * 다크 팔레트(계획 15). data-theme 속성이 없으면(=시스템 따름) 아래 media query가
+ * OS 다크모드를 그대로 반영한다. 명시적으로 라이트를 고르면(:not([data-theme='light']))
+ * media query가 안 먹혀 라이트로 고정되고, 명시적으로 다크를 고르면 OS 설정과 무관하게
+ * 아래 :root[data-theme='dark'] 블록이 항상 이긴다. 순수 검정 대신 웜톤 차콜을 쓴다.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-canvas: #1c1a17;
+    --color-surface: #262320;
+    --color-ink: #f0ede5;
+    --color-ink-muted: #a39c8c;
+    --color-border: #3a352e;
+    --color-accent: #d97449;
+    --color-accent-ink: #1c1a17;
+    --color-danger: #e0574a;
+
+    --color-buy-bg: #24352a;
+    --color-buy-text: #8fc79c;
+    --color-caution-bg: #3a3020;
+    --color-caution-text: #e0b968;
+    --color-skip-bg: #3a2422;
+    --color-skip-text: #e0938c;
+  }
+}
+
+:root[data-theme='dark'] {
+  --color-canvas: #1c1a17;
+  --color-surface: #262320;
+  --color-ink: #f0ede5;
+  --color-ink-muted: #a39c8c;
+  --color-border: #3a352e;
+  --color-accent: #d97449;
+  --color-accent-ink: #1c1a17;
+  --color-danger: #e0574a;
+
+  --color-buy-bg: #24352a;
+  --color-buy-text: #8fc79c;
+  --color-caution-bg: #3a3020;
+  --color-caution-text: #e0b968;
+  --color-skip-bg: #3a2422;
+  --color-skip-text: #e0938c;
 }
