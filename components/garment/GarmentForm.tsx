@@ -10,6 +10,10 @@ import { PasteSizeTableField } from '@/components/garment/PasteSizeTableField'
 import { Button } from '@/components/ui/Button'
 import { INPUT, CARD_SURFACE } from '@/components/ui/styles'
 
+// 렌더마다 새로 만들 이유가 없는 고정값이라 컴포넌트 함수 바깥에 둔다.
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024 // 4MB — 업로드 API(app/api/garments/upload-image)와 같은 한도.
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+
 export type GarmentSubmitPayload = {
   goodsNo: string
   sourceUrl: string | null
@@ -74,6 +78,8 @@ export function GarmentForm({
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imageError, setImageError] = useState<string | null>(null)
 
   // 신발·액세서리는 FIT_RULES에 항목이 없어 애초에 핏 채점 대상이 아니므로(lib/fit/rules.ts 주석 참고),
   // 실측 입력 UI 자체를 보여주지 않는다 — 의미 없는 총장·가슴단면 입력칸을 채우게 하지 않기 위해서다.
@@ -95,10 +101,41 @@ export function GarmentForm({
     return entries
   }
 
+  function handleImageChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null
+    if (file && !ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setImageError('JPG·PNG·WEBP 파일만 올릴 수 있습니다.')
+      setImageFile(null)
+      return
+    }
+    if (file && file.size > MAX_IMAGE_BYTES) {
+      setImageError('4MB 이하 파일만 올릴 수 있습니다.')
+      setImageFile(null)
+      return
+    }
+    setImageError(null)
+    setImageFile(file)
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     setSubmitting(true)
     setError(null)
+
+    // 파일을 골랐으면 URL 입력보다 우선한다 — 완전 수동 등록은 URL이 애초에 없고,
+    // 무신사 링크를 썼는데 이미지만 파싱 실패한 경우에도 사진을 직접 올리는 쪽이 더 쉽다.
+    let uploadedImageUrl: string | null = null
+    if (imageFile) {
+      const uploadBody = new FormData()
+      uploadBody.append('file', imageFile)
+      const uploadResponse = await fetch('/api/garments/upload-image', { method: 'POST', body: uploadBody })
+      if (!uploadResponse.ok) {
+        setSubmitting(false)
+        setError('사진을 올리지 못했습니다.')
+        return
+      }
+      uploadedImageUrl = (await uploadResponse.json()).url
+    }
 
     const hasFullPastedTable = Object.keys(pastedSizeTable).length > 0
 
@@ -108,7 +145,7 @@ export function GarmentForm({
       name: name.trim(),
       brand: brand.trim() || null,
       price: price ? Number(price) : null,
-      imageUrl: imageUrl.trim() || null,
+      imageUrl: uploadedImageUrl ?? (imageUrl.trim() || null),
       category,
       colorOption: color.trim(),
       sizeOption: size.trim(),
@@ -236,9 +273,17 @@ export function GarmentForm({
       )}
 
       {!f.imageUrl.ok && (
-        <Field label="이미지 주소" manual>
+        <Field label="사진" manual>
+          <input
+            type="file"
+            accept={ALLOWED_IMAGE_TYPES.join(',')}
+            onChange={handleImageChange}
+            className="block text-sm text-ink-muted file:mr-3 file:rounded-btn file:border file:border-border file:bg-surface file:px-3 file:py-1.5 file:text-sm file:text-ink"
+          />
+          {imageFile && <p className="text-sm text-ink">선택한 파일: {imageFile.name}</p>}
+          {imageError && <p className="text-sm text-danger">{imageError}</p>}
           <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)}
-            placeholder="https://…" className={INPUT} />
+            placeholder="또는 이미지 주소를 붙여넣으세요" className={`${INPUT} mt-2`} />
         </Field>
       )}
 
