@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createServerSupabase } from '@/lib/supabase/server'
 import { CartList } from '@/components/garment/CartList'
+import { CartPriceRefresher } from '@/components/garment/CartPriceRefresher'
 import type { CartItem } from '@/components/garment/CartItemCard'
 
 type AnalysisRow = { verdict: 'buy' | 'caution' | 'skip'; created_at: string }
@@ -35,6 +36,7 @@ export default async function CartPage() {
   return (
     <main className="mx-auto max-w-2xl space-y-4 px-4 py-8">
       <h1 className="text-2xl font-medium tracking-tight text-ink">장바구니</h1>
+      <CartPriceRefresher />
 
       {items.length === 0 ? (
         <p className="rounded-card border border-dashed border-border p-10 text-center text-sm text-ink-muted">
