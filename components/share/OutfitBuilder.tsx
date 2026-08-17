@@ -1,19 +1,29 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
-import { INPUT, CARD_SURFACE } from '@/components/ui/styles'
+import { INPUT, CARD_SURFACE, pillClass } from '@/components/ui/styles'
 
-type BuilderGarment = { id: string; name: string; image_url: string | null }
+export type BuilderGarment = {
+  id: string
+  name: string
+  image_url: string | null
+  /** RecommendAndBuild가 방금 추천한 아이템에만 true로 채운다 — 옷장 실물과 구분하는 배지에 쓴다. */
+  justRecommended?: boolean
+}
 
 type Props = {
   wardrobeOwnerId: string
   garments: BuilderGarment[]
+  /** 값이 바뀔 때마다(추천할 때마다) 그 id를 selected에 자동으로 더한다. */
+  preselectId?: string | null
+  /** 룩 생성에 성공하면 호출한다. RecommendAndBuild가 이걸로 추천 목록을 비운다. */
+  onSubmitted?: () => void
 }
 
-export function OutfitBuilder({ wardrobeOwnerId, garments }: Props) {
+export function OutfitBuilder({ wardrobeOwnerId, garments, preselectId, onSubmitted }: Props) {
   const router = useRouter()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -21,6 +31,13 @@ export function OutfitBuilder({ wardrobeOwnerId, garments }: Props) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
+
+  // 추천 직후 preselectId가 바뀔 때마다 자동으로 체크한다. 이미 선택돼 있으면(같은 값이 다시
+  // 와도) 중복으로 더하지 않는다.
+  useEffect(() => {
+    if (!preselectId) return
+    setSelected((prev) => (prev.includes(preselectId) ? prev : [...prev, preselectId]))
+  }, [preselectId])
 
   function toggle(id: string) {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
@@ -53,6 +70,7 @@ export function OutfitBuilder({ wardrobeOwnerId, garments }: Props) {
     setDescription('')
     setSelected([])
     router.refresh()
+    onSubmitted?.()
   }
 
   if (garments.length === 0) {
@@ -81,6 +99,11 @@ export function OutfitBuilder({ wardrobeOwnerId, garments }: Props) {
                 <Image src={garment.image_url} alt={garment.name} fill className="object-cover" sizes="150px" />
               )}
             </div>
+            {garment.justRecommended && (
+              <span className={`${pillClass('active')} absolute left-1 top-1 px-2 py-0.5 text-xs`}>
+                추천함
+              </span>
+            )}
           </label>
         ))}
       </div>
