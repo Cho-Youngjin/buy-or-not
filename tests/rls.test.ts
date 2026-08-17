@@ -182,3 +182,46 @@ describe('outfits', () => {
     expect(data?.length).toBe(1)
   })
 })
+
+describe('fit_field_overrides', () => {
+  it('본인은 자기 항목별 허용오차를 저장할 수 있다', async () => {
+    const { error } = await alice.client
+      .from('fit_field_overrides')
+      .insert({ owner_id: alice.id, category: 'bottom', field_key: '허리단면', tolerance: 1.0 })
+    expect(error).toBeNull()
+  })
+
+  it('본인 값은 조회된다', async () => {
+    const { data } = await alice.client
+      .from('fit_field_overrides')
+      .select('tolerance')
+      .eq('owner_id', alice.id)
+      .eq('category', 'bottom')
+      .eq('field_key', '허리단면')
+      .single()
+    expect(Number(data?.tolerance)).toBe(1.0)
+  })
+
+  it('남의 항목별 허용오차는 조회되지 않는다', async () => {
+    const { data } = await bob.client.from('fit_field_overrides').select('tolerance').eq('owner_id', alice.id)
+    expect(data).toEqual([])
+  })
+
+  it('남의 이름으로는 저장할 수 없다', async () => {
+    const { error } = await bob.client
+      .from('fit_field_overrides')
+      .insert({ owner_id: alice.id, category: 'top', field_key: '총장', tolerance: 2.0 })
+    expect(error).not.toBeNull()
+  })
+
+  it('본인은 자기 값을 지울 수 있다', async () => {
+    const { data } = await alice.client
+      .from('fit_field_overrides')
+      .delete()
+      .eq('owner_id', alice.id)
+      .eq('category', 'bottom')
+      .eq('field_key', '허리단면')
+      .select()
+    expect(data?.length).toBe(1)
+  })
+})
