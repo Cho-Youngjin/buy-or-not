@@ -68,7 +68,15 @@ export function useMusinsaParse(options?: { onStart?: () => void }): {
 }
 ```
 
-`onStart`가 필요한 이유: `RecommendLinkBar`만 "추천했습니다" 완료 메시지용 `done` 상태를 갖고 있고, 새 링크를 파싱하기 시작할 때 그것을 꺼야 한다. 현재는 `handleSubmit` 안에서 `setDone(false)`를 부르는데 그 함수가 훅으로 옮겨가므로 훅이 대신 불러줘야 한다. 나머지 두 파일은 이 옵션을 쓰지 않는다.
+`onStart`가 필요한 이유: 세 파일 중 둘이 파싱 외에 자기만의 결과 상태를 갖고 있고, 새 링크를 파싱하기 시작할 때 그것을 지워야 한다. 현재는 각자의 `handleSubmit` 안에서 지우는데 그 함수가 훅으로 옮겨가므로 훅이 대신 불러줘야 한다.
+
+| 파일 | 지워야 할 상태 | 현재 코드 |
+|---|---|---|
+| `AnalyzeLinkBar` | `result` (판단 결과) | `setResult(null)` |
+| `RecommendLinkBar` | `done` (완료 메시지) | `setDone(false)` |
+| `LinkInputBar` | 없음 | — |
+
+`LinkInputBar`만 이 옵션 없이 `useMusinsaParse()`를 그냥 호출한다.
 
 `useCallback`·`useMemo`로 감싸지 않는다 — 현재 세 파일이 컴포넌트 본문에 평범한 `async function`을 두는 방식이고, 이 규모에서 메모이제이션은 이득 없이 코드만 복잡해진다.
 
