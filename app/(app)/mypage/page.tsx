@@ -4,6 +4,7 @@ import { createServerSupabase } from '@/lib/supabase/server'
 import { ShareToggle } from '@/components/share/ShareToggle'
 import { LogoutButton } from '@/components/account/LogoutButton'
 import { FitStrictnessSlider } from '@/components/account/FitStrictnessSlider'
+import { FitFieldOverrides } from '@/components/account/FitFieldOverrides'
 import { CARD_SURFACE } from '@/components/ui/styles'
 
 /**
@@ -21,6 +22,16 @@ export default async function MyPage() {
     .select('nickname, avatar_url, share_slug, is_wardrobe_public, fit_strictness')
     .eq('id', user.id)
     .single()
+
+  const { data: fitOverrideRows } = await supabase
+    .from('fit_field_overrides')
+    .select('category, field_key, tolerance')
+    .eq('owner_id', user.id)
+  const fitOverrides = (fitOverrideRows ?? []).map((row) => ({
+    category: row.category,
+    fieldKey: row.field_key,
+    tolerance: Number(row.tolerance),
+  }))
 
   return (
     <main className="mx-auto max-w-2xl space-y-6 px-4 py-8">
@@ -56,6 +67,11 @@ export default async function MyPage() {
         </p>
         {/* numeric 컬럼은 PostgREST가 문자열로 돌려주므로 Number()로 감싼다(계획 서두 참고). */}
         <FitStrictnessSlider initialValue={Number(profile?.fit_strictness ?? 1)} />
+
+        <div className="border-t border-border pt-3">
+          <h3 className="mb-2 text-xs font-medium text-ink-muted">항목별 직접 입력 (선택)</h3>
+          <FitFieldOverrides initialOverrides={fitOverrides} />
+        </div>
       </section>
 
       <LogoutButton />
