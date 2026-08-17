@@ -44,7 +44,8 @@ export async function POST(request: Request) {
       recommendedBy: user.id,
       note,
     })
-    return NextResponse.json({ id: result.id }, { status: 201 })
+    // name·imageUrl은 추천 직후 프론트가 룩 재료 목록에 바로 추가하는 데 쓴다(RecommendLinkBar.onRecommended).
+    return NextResponse.json({ id: result.id, name: result.name, imageUrl: result.imageUrl }, { status: 201 })
   } catch {
     return NextResponse.json({ error: '추천하지 못했습니다. 옷장이 비공개일 수 있습니다.' }, { status: 500 })
   }

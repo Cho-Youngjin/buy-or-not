@@ -25,6 +25,9 @@ export type RegisterGarmentInput = {
 
 export type RegisterGarmentResult = {
   id: string
+  name: string
+  /** Storage 복사까지 끝난 최종 이미지 URL. 추천 직후 룩 재료 목록에 바로 쓸 수 있게 넘긴다(계획 9). */
+  imageUrl: string | null
   duplicate: boolean
   /** 옷 자체는 저장됐지만 실측 저장이 실패한 경우. 호출부가 응답 상태 코드를 결정할 때 쓴다. */
   measurementsFailed: boolean
@@ -128,6 +131,8 @@ export async function registerGarment(
 
   return {
     id: garment.id,
+    name: input.name,
+    imageUrl: finalImageUrl,
     duplicate: Boolean(duplicateCount && duplicateCount > 0),
     measurementsFailed,
   }
