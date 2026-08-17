@@ -48,3 +48,7 @@ supabase/.branches/
 next-env.d.ts
 
 .superpowers/
+
+# 앞으로 새로 만드는 파일부터만 적용 — 이미 커밋된 기존 docs/·tests/ 파일은 그대로 추적된다.
+docs/
+tests/
