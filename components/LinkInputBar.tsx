@@ -1,70 +1,31 @@
 'use client'
 
-import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { ParseResult } from '@/lib/musinsa/types'
 import { GarmentForm } from '@/components/GarmentForm'
-import { Button } from '@/components/ui/Button'
-import { INPUT } from '@/components/ui/styles'
+import { useMusinsaParse } from '@/components/garment/useMusinsaParse'
+import { MusinsaLinkInput } from '@/components/garment/MusinsaLinkInput'
 
 /**
- * 옷장 등록의 진입점. 링크를 붙여넣고 `/api/musinsa/parse`를 호출해 결과를 받은 뒤,
- * 그 결과를 <GarmentForm />에 넘겨 필드별 성공/실패에 따라 읽기전용/입력 폼을 나눠 그리게 한다.
- * 여기서는 상태(로딩·에러·파싱 결과)만 들고 있고, 실제 저장(POST /api/garments)은 GarmentForm이 맡는다.
+ * 옷장 등록의 진입점.
+ * 링크 파싱은 useMusinsaParse가, 입력 UI는 MusinsaLinkInput이 맡는다 —
+ * 여기 남은 건 "어디로 저장할지"와 "저장 후 무엇을 할지"뿐이다.
  */
 export function LinkInputBar() {
   const router = useRouter()
-  const [url, setUrl] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [parsed, setParsed] = useState<ParseResult | null>(null)
-
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault()
-    setLoading(true)
-    setError(null)
-    setParsed(null)
-
-    const response = await fetch('/api/musinsa/parse', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url }),
-    })
-    const data = await response.json()
-    setLoading(false)
-
-    if (!response.ok) {
-      setError(data.error ?? '상품 정보를 가져오지 못했습니다.')
-      return
-    }
-    setParsed(data as ParseResult)
-  }
+  const parse = useMusinsaParse()
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleSubmit} className="flex gap-2">
-        <input
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="무신사 상품 링크를 붙여넣으세요"
-          className={`${INPUT} flex-1`}
-        />
-        <Button type="submit" disabled={loading || url.trim().length === 0}>
-          {loading ? '불러오는 중…' : '불러오기'}
-        </Button>
-      </form>
+      <MusinsaLinkInput {...parse} placeholder="무신사 상품 링크를 붙여넣으세요" />
 
-      {error && <p className="text-sm text-danger">{error}</p>}
-
-      {parsed && (
+      {parse.parsed && (
         <GarmentForm
-          parsed={parsed}
-          sourceUrl={url}
+          parsed={parse.parsed}
+          sourceUrl={parse.url}
           submitEndpoint="/api/garments"
           submitLabel="옷장에 넣기"
           onSubmitted={() => {
-            setParsed(null)
-            setUrl('')
+            parse.reset()
             router.refresh()
           }}
         />
