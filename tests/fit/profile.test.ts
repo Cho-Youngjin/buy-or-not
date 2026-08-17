@@ -82,3 +82,26 @@ describe('buildPreferenceProfile — 표준 항목이 아닌 값은 무시한다
     expect(buildPreferenceProfile(garments, 'shoes').status).toBe('insufficient')
   })
 })
+
+describe('buildPreferenceProfile — 허용오차 배율', () => {
+  // 총장 기본 허용오차 3.0. 성공 집합의 값 간격이 4cm라 기본값에서는 매번 쪼개진다.
+  const garments: GarmentForProfile[] = [
+    garment({ rating: 5, measurements: { 총장: 60 } }),
+    garment({ rating: 5, measurements: { 총장: 64 } }),
+    garment({ rating: 5, measurements: { 총장: 68 } }),
+  ]
+
+  it('배율 1(기본)이면 간격 4cm가 허용오차 3.0을 넘어 세 구간으로 쪼개진다', () => {
+    expect(buildPreferenceProfile(garments, 'top').fields['총장'].ranges).toEqual([
+      { lo: 60, hi: 60 },
+      { lo: 64, hi: 64 },
+      { lo: 68, hi: 68 },
+    ])
+  })
+
+  it('배율 2.0이면 허용오차가 6.0이 되어 같은 값들이 한 구간으로 묶인다', () => {
+    expect(buildPreferenceProfile(garments, 'top', 2).fields['총장'].ranges).toEqual([
+      { lo: 60, hi: 68 },
+    ])
+  })
+})

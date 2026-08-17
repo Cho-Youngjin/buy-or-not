@@ -27,6 +27,13 @@ export function scoreDeviation(
   candidateMeasurements: Record<string, number>,
   profile: PreferenceProfile,
   category: Category,
+  /**
+   * 사용자가 마이페이지에서 정한 허용오차 배율(profiles.fit_strictness).
+   * 기본값 1이면 FIT_RULES의 원래 수치를 그대로 쓴다 — 기존 호출부·테스트가 안 깨진다.
+   * 주의: buildPreferenceProfile에 넘기는 값과 반드시 같아야 한다. 선호 구간을 나눌 때 쓴
+   * 허용오차와 그 구간 밖 초과분을 잴 때 쓰는 허용오차가 다르면 [lo-t, hi+t] 개념이 깨진다.
+   */
+  toleranceMultiplier = 1,
 ): DeviationReport {
   const rules = FIT_RULES[category]
   if (!rules || profile.status === 'insufficient') {
@@ -42,7 +49,7 @@ export function scoreDeviation(
     const fieldProfile = profile.fields[key]
     if (candidateValue == null || !fieldProfile || fieldProfile.ranges.length === 0) continue
 
-    const t = rule.tolerance
+    const t = rule.tolerance * toleranceMultiplier
     // 범위가 여러 개(클러스터)일 수 있으므로, 각 범위에 대한 편차 중 가장 작은 값을 쓴다 —
     // 크롭 범위와 오버핏 범위를 둘 다 가진 사용자에게 후보가 둘 중 하나에만 맞아도 통과해야 한다.
     const excess = Math.min(

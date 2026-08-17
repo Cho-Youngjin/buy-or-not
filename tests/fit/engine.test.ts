@@ -97,3 +97,30 @@ describe('scoreDeviation — 데이터 부족', () => {
     expect(report.fields).toEqual([])
   })
 })
+
+describe('scoreDeviation — 허용오차 배율', () => {
+  // 총장: 기본 허용오차 t=3.0, 가중치 2. 선호 범위 [60,62].
+  it('배율 0.5면 허용구간이 좁아져 기본값에서는 통과하던 값이 위반이 된다', () => {
+    const p = profile({ 총장: { ranges: [{ lo: 60, hi: 62 }] } })
+
+    // 배율 1: 허용구간 [57, 65] → 65는 경계 안이라 위반 없음.
+    expect(scoreDeviation({ 총장: 65 }, p, 'top')).toMatchObject({ fitScore: 0 })
+
+    // 배율 0.5: t=1.5 → 허용구간 [58.5, 63.5] → 65는 1.5cm 초과.
+    // 초과폭 1.5가 t(1.5)보다 크지 않으므로 경고(가중치 2 × 1 = 2점).
+    const strict = scoreDeviation({ 총장: 65 }, p, 'top', 0.5)
+    expect(strict.fields[0]).toMatchObject({ excess: 1.5, score: 2 })
+  })
+
+  it('배율 2.0이면 허용구간이 넓어져 기본값에서는 위반이던 값이 통과한다', () => {
+    const p = profile({ 총장: { ranges: [{ lo: 60, hi: 62 }] } })
+
+    // 배율 1: 허용구간 [57, 65] → 67은 2cm 초과(경고, 2점).
+    expect(scoreDeviation({ 총장: 67 }, p, 'top').fields[0]).toMatchObject({ excess: 2, score: 2 })
+
+    // 배율 2: t=6.0 → 허용구간 [54, 68] → 67은 구간 안이라 위반 없음.
+    const relaxed = scoreDeviation({ 총장: 67 }, p, 'top', 2)
+    expect(relaxed.fields[0]).toMatchObject({ excess: 0, score: 0 })
+    expect(relaxed.fitScore).toBe(0)
+  })
+})

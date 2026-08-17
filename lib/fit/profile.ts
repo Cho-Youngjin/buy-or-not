@@ -58,7 +58,12 @@ function average(values: number[]): number | null {
  * garments(순수 데이터, DB를 모른다)로부터 선호 실측 범위를 조립한다.
  * DB 조회와 분리해서 여기 하나만 단위 테스트로 촘촘히 검증한다.
  */
-export function buildPreferenceProfile(garments: GarmentForProfile[], category: Category): PreferenceProfile {
+export function buildPreferenceProfile(
+  garments: GarmentForProfile[],
+  category: Category,
+  /** scoreDeviation에 넘기는 값과 반드시 같아야 한다 — engine.ts의 같은 파라미터 주석 참고. */
+  toleranceMultiplier = 1,
+): PreferenceProfile {
   const rules = FIT_RULES[category]
   if (!rules) return { status: 'insufficient', fields: {}, avgPrice: null }
   if (garments.length < MIN_OWNED_GARMENTS_FOR_FIT) {
@@ -92,7 +97,7 @@ export function buildPreferenceProfile(garments: GarmentForProfile[], category: 
       .filter((v): v is number => typeof v === 'number')
 
     fields[key] = {
-      ranges: clusterValues(successValues, rules[key].tolerance),
+      ranges: clusterValues(successValues, rules[key].tolerance * toleranceMultiplier),
       upperWarnLimit: looseFailureValues.length > 0 ? Math.min(...looseFailureValues) : undefined,
       lowerWarnLimit: tightFailureValues.length > 0 ? Math.max(...tightFailureValues) : undefined,
     }
@@ -120,6 +125,7 @@ export async function fetchPreferenceProfile(
   supabase: SupabaseClient,
   ownerId: string,
   category: Category,
+  toleranceMultiplier = 1,
 ): Promise<PreferenceProfile> {
   const { data } = await supabase
     .from('garments')
@@ -137,5 +143,5 @@ export async function fetchPreferenceProfile(
     measurements: Object.fromEntries((g.garment_measurements ?? []).map((m) => [m.key, Number(m.value)])),
   }))
 
-  return buildPreferenceProfile(garments, category)
+  return buildPreferenceProfile(garments, category, toleranceMultiplier)
 }
