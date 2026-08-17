@@ -5,6 +5,7 @@ import { ShareToggle } from '@/components/share/ShareToggle'
 import { LogoutButton } from '@/components/account/LogoutButton'
 import { FitStrictnessSlider } from '@/components/account/FitStrictnessSlider'
 import { FitFieldOverrides } from '@/components/account/FitFieldOverrides'
+import { ThemeToggle } from '@/components/account/ThemeToggle'
 import { CARD_SURFACE } from '@/components/ui/styles'
 
 /**
@@ -19,7 +20,7 @@ export default async function MyPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('nickname, avatar_url, share_slug, is_wardrobe_public, fit_strictness')
+    .select('nickname, avatar_url, share_slug, is_wardrobe_public, fit_strictness, theme')
     .eq('id', user.id)
     .single()
 
@@ -72,6 +73,13 @@ export default async function MyPage() {
           <h3 className="mb-2 text-xs font-medium text-ink-muted">항목별 직접 입력 (선택)</h3>
           <FitFieldOverrides initialOverrides={fitOverrides} />
         </div>
+      </section>
+
+      <section className={`${CARD_SURFACE} space-y-3 p-5`}>
+        <h2 className="text-sm font-medium text-ink">화면 테마</h2>
+        {/* theme 컬럼은 DB CHECK로 세 값만 허용되지만 PostgREST 타입은 그냥 string이라 캐스팅한다
+            (profile?.fit_strictness를 Number()로 감싸는 위 코드와 같은 이유). */}
+        <ThemeToggle initialValue={(profile?.theme as 'system' | 'light' | 'dark') ?? 'system'} />
       </section>
 
       <LogoutButton />
