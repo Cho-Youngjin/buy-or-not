@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createServerSupabase } from '@/lib/supabase/server'
 import { ShareToggle } from '@/components/ShareToggle'
 import { LogoutButton } from '@/components/LogoutButton'
+import { FitStrictnessSlider } from '@/components/FitStrictnessSlider'
 import { CARD_SURFACE } from '@/components/ui/styles'
 
 /**
@@ -17,7 +18,7 @@ export default async function MyPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('nickname, avatar_url, share_slug, is_wardrobe_public')
+    .select('nickname, avatar_url, share_slug, is_wardrobe_public, fit_strictness')
     .eq('id', user.id)
     .single()
 
@@ -47,13 +48,14 @@ export default async function MyPage() {
         )}
       </section>
 
-      {/* 2단계(핏 판단 설정)에서 실제 화면으로 교체한다. 지금은 존재만 알린다. */}
-      <section className={`${CARD_SURFACE} flex items-center justify-between p-5`}>
-        <div>
-          <h2 className="text-sm font-medium text-ink">핏 판단 설정</h2>
-          <p className="text-sm text-ink-muted">허용 편차 같은 수치를 직접 조정합니다.</p>
-        </div>
-        <span className="shrink-0 text-sm text-ink-muted">준비 중</span>
+      <section className={`${CARD_SURFACE} space-y-3 p-5`}>
+        <h2 className="text-sm font-medium text-ink">핏 판단 설정</h2>
+        <p className="text-sm text-ink-muted">
+          실측이 내 선호 범위에서 얼마나 벗어나도 괜찮은지 정합니다.
+          엄격할수록 조금만 달라도 &quot;주의&quot;나 &quot;비추천&quot;이 나옵니다.
+        </p>
+        {/* numeric 컬럼은 PostgREST가 문자열로 돌려주므로 Number()로 감싼다(계획 서두 참고). */}
+        <FitStrictnessSlider initialValue={Number(profile?.fit_strictness ?? 1)} />
       </section>
 
       <LogoutButton />
