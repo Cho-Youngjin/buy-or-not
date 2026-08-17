@@ -374,3 +374,17 @@ DB 컬럼(`garments.goods_no`)은 nullable이지만, `registerGarment`의 이미
 **검증**: 새 파싱 로직은 만들지 않고 계획 1의 `fetchProductHtml`·`parseProductHtml`을 그대로 재사용했으므로 이번 계획에서 새 단위 테스트는 추가하지 않았다(`npm test` 134개, 계획 10과 동일). 대신 실제 무신사 링크(`musinsa.com/products/6593921`)로 장바구니 아이템을 등록해 전체 파이프라인을 눈으로 확인했다: `price_checked_at`을 8일 전으로 강제해 `/cart` 방문 시 `POST /api/cart/refresh-prices`가 실제로 나가는지(네트워크 탭), DB의 `last_known_price`·`price_checked_at`이 실제 무신사 현재가로 갱신되는지 SQL로 대조했다. 가격 인하 표시는 `last_known_price`를 `price`보다 4,000원 낮게 만들어 취소선 원가 → 강조된 인하가 + "인하" 배지가 뜨는 것을, 다시 `last_known_price = price`로 되돌려 인하가 없을 때는 가격 하나만 평범하게 뜨는 것을 화면으로 확인했다. 검증에 쓴 값은 확인 후 `null`로 정리했다.
 
 **결과**: 계획 11(장바구니 가격 인하 표시, `docs/superpowers/plans/2026-08-17-plan11-cart-price-drop.md`) 완료. `npm test`(134개) 전부 통과, `npm run build` 타입 오류 없이 성공. 이걸로 합의한 A~F가 전부 끝났다. 남은 일은 이 문서들의 "남은 일" 절(액세서리 카테고리 확장, 휴지통, 수동 등록 확장, 실시간 알림, 심각도·가중치 조정, 실제 배포, Cron 자동화)에 정리돼 있으며, 새 사업이 필요해지면 그때 다시 브레인스토밍부터 시작한다.
+
+### 계획 12 — 직접 등록 화면 안내문 제거 (2026-08-17)
+
+A~F 완료 후 새로 제안된 6개 기능 중 첫 번째(진행 순서: 6→1→3→2→4→5로 합의). 설계 근거는 `docs/superpowers/specs/2026-08-17-manual-form-banner-fix-design.md`.
+
+**문제**: "무신사 링크가 없나요? 직접 등록하기"로 들어간 완전 수동 입력 화면에도 "일부 정보를 자동으로 가져오지 못했습니다. 아래 표시된 칸만 채워주세요."라는 안내문이 떴다. 이 문구는 계획 1에서 무신사 링크를 파싱했는데 일부 필드만 실패했을 때를 위해 만든 것인데, "링크 없이 처음부터 전부 직접 입력하겠다"고 고른 사용자에게는 사실과 다른 안내였다.
+
+**원인**: 계획 8이 도입한 `createManualParseResult()`(`lib/musinsa/manualParseResult.ts`)는 무신사 링크 없이도 기존 `GarmentForm`을 그대로 재사용하려고, 모든 필드를 `fail()` 처리한 합성 `ParseResult`를 만든다. 배너 조건(`manualFields.length > 0`)은 "필드 중 하나라도 실패"만 보고, "링크에서 왔는데 일부 실패"와 "링크 자체가 없어서 전부 실패"를 구분하지 못했다.
+
+**해결**: `GarmentForm`이 이미 받고 있던 `sourceUrl: string | null` prop이 정확히 이 둘을 구분하는 신호였다(`LinkInputBar.tsx`에서 실제 링크 파싱이면 `parse.url`을, "직접 등록하기"면 `null`을 넘긴다). 새 prop이나 상태를 추가하지 않고 배너 조건에 `sourceUrl !== null`만 더했다.
+
+**검증**: 조건문 한 줄 변경이라 별도 단위 테스트 대상은 없었고, `npm run build`(134개 타입 검사 그대로, 회귀 없음) + `npm test`(134개, 새 테스트 없음) + 브라우저 확인으로 검증했다. 실제 무신사 링크(`musinsa.com/products/6593921`, 사이즈 옵션 등 일부 필드가 파싱 실패하는 상품)로는 배너가 그대로 뜨는 것을, "직접 등록하기"로 연 완전 수동 폼에서는 배너가 뜨지 않는 것을 화면으로 확인했다.
+
+**결과**: 계획 12(직접 등록 화면 안내문 제거, `docs/superpowers/plans/2026-08-17-plan12-manual-form-banner-fix.md`) 완료. `npm test`(134개) 전부 통과, `npm run build` 타입 오류 없이 성공. 다음은 1(옷장 선호도 미설정 표시)이다.
