@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createServerSupabase } from '@/lib/supabase/server'
-import { LinkInputBar } from '@/components/LinkInputBar'
-import { GarmentCard, type GarmentCardData } from '@/components/GarmentCard'
+import { LinkInputBar } from '@/components/garment/LinkInputBar'
+import { GarmentCard, type GarmentCardData } from '@/components/garment/GarmentCard'
 import { pillClass } from '@/components/ui/styles'
 import { CATEGORY_LABELS, type Category } from '@/lib/types'
 

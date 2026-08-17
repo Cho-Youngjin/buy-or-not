@@ -1,9 +1,9 @@
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import { createServerSupabase } from '@/lib/supabase/server'
-import { ShareToggle } from '@/components/ShareToggle'
-import { LogoutButton } from '@/components/LogoutButton'
-import { FitStrictnessSlider } from '@/components/FitStrictnessSlider'
+import { ShareToggle } from '@/components/share/ShareToggle'
+import { LogoutButton } from '@/components/account/LogoutButton'
+import { FitStrictnessSlider } from '@/components/account/FitStrictnessSlider'
 import { CARD_SURFACE } from '@/components/ui/styles'
 
 /**

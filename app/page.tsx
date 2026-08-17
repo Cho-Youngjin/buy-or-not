@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createServerSupabase } from '@/lib/supabase/server'
-import { LoginButton } from '@/components/LoginButton'
+import { LoginButton } from '@/components/account/LoginButton'
 
 export default async function HomePage() {
   const supabase = await createServerSupabase()

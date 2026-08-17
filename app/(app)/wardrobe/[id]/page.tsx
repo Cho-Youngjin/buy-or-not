@@ -4,9 +4,9 @@ import { notFound, redirect } from 'next/navigation'
 import { ArrowLeft } from '@phosphor-icons/react/ssr'
 import { createServerSupabase } from '@/lib/supabase/server'
 import { CATEGORY_LABELS, type Category, type FitTag, type WearFrequency } from '@/lib/types'
-import { MeasurementsTable } from '@/components/MeasurementsTable'
-import { PreferenceForm } from '@/components/PreferenceForm'
-import { DeleteGarmentButton } from '@/components/DeleteGarmentButton'
+import { MeasurementsTable } from '@/components/garment/MeasurementsTable'
+import { PreferenceForm } from '@/components/garment/PreferenceForm'
+import { DeleteGarmentButton } from '@/components/garment/DeleteGarmentButton'
 
 type Props = { params: Promise<{ id: string }> }
 

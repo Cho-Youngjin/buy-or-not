@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createServerSupabase } from '@/lib/supabase/server'
-import { CartItemCard, type CartItem } from '@/components/CartItemCard'
+import { CartItemCard, type CartItem } from '@/components/garment/CartItemCard'
 
 type AnalysisRow = { verdict: 'buy' | 'caution' | 'skip'; created_at: string }
 

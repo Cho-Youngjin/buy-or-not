@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createServerSupabase } from '@/lib/supabase/server'
-import { AnalyzeLinkBar } from '@/components/AnalyzeLinkBar'
+import { AnalyzeLinkBar } from '@/components/analyze/AnalyzeLinkBar'
 
 export default async function AnalyzePage() {
   const supabase = await createServerSupabase()

@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { GarmentForm } from '@/components/GarmentForm'
+import { GarmentForm } from '@/components/garment/GarmentForm'
 import { useMusinsaParse } from '@/components/garment/useMusinsaParse'
 import { MusinsaLinkInput } from '@/components/garment/MusinsaLinkInput'
 

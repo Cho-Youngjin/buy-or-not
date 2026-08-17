@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { GarmentForm } from '@/components/GarmentForm'
-import { VerdictBadge } from '@/components/VerdictBadge'
-import { DeviationReport } from '@/components/DeviationReport'
+import { GarmentForm } from '@/components/garment/GarmentForm'
+import { VerdictBadge } from '@/components/analyze/VerdictBadge'
+import { DeviationReport } from '@/components/analyze/DeviationReport'
 import { useMusinsaParse } from '@/components/garment/useMusinsaParse'
 import { MusinsaLinkInput } from '@/components/garment/MusinsaLinkInput'
 import { CARD_SURFACE } from '@/components/ui/styles'

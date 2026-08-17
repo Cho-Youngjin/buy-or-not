@@ -5,7 +5,7 @@ import { CATEGORY_LABELS, type Category } from '@/lib/types'
 import { PARSEABLE_FIELDS, type ParseResult, type ParseableField, type SizeTable } from '@/lib/musinsa/types'
 import { STANDARD_KEYS } from '@/lib/musinsa/measurements'
 import { FIT_RULES } from '@/lib/fit/rules'
-import { PasteSizeTableField } from '@/components/PasteSizeTableField'
+import { PasteSizeTableField } from '@/components/garment/PasteSizeTableField'
 import { Button } from '@/components/ui/Button'
 import { INPUT, CARD_SURFACE } from '@/components/ui/styles'
 
