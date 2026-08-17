@@ -7,7 +7,7 @@ import { tagGarmentImage } from '@/lib/ai/tagger'
 
 export type RegisterGarmentInput = {
   goodsNo: string
-  sourceUrl: string
+  sourceUrl: string | null
   name: string
   brand: string | null
   price: number | null

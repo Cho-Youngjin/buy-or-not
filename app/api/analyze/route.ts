@@ -13,7 +13,7 @@ export const maxDuration = 30
 
 const Body = z.object({
   goodsNo: z.string(),
-  sourceUrl: z.string(),
+  sourceUrl: z.string().nullable(),
   name: z.string().min(1),
   brand: z.string().nullable(),
   price: z.number().int().nonnegative().nullable(),

@@ -12,7 +12,7 @@ import { INPUT, CARD_SURFACE } from '@/components/ui/styles'
 
 export type GarmentSubmitPayload = {
   goodsNo: string
-  sourceUrl: string
+  sourceUrl: string | null
   name: string
   brand: string | null
   price: number | null
@@ -28,7 +28,7 @@ export type GarmentSubmitPayload = {
 
 type Props = {
   parsed: ParseResult
-  sourceUrl: string
+  sourceUrl: string | null
   /** 옷장 등록은 '/api/garments', 구매 판단은 '/api/analyze' — 등록 파이프라인은 같고 목적지만 다르다. */
   submitEndpoint: string
   submitLabel: string
