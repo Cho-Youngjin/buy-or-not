@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { CARD_SURFACE, pillClass } from '@/components/ui/styles'
@@ -45,15 +46,10 @@ export function CartItemCard({ item, checked, onToggle }: Props) {
     router.refresh()
   }
 
-  return (
-    <div className={`${CARD_SURFACE} flex items-center gap-3 p-3`}>
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={() => onToggle(item.id)}
-        aria-label={`${item.name} 선택`}
-        className="h-4 w-4 shrink-0 accent-accent"
-      />
+  // latestVerdict가 없으면 analyses 행이 없다는 뜻이다(친구 추천으로 들어온 아이템 등,
+  // app/(app)/cart/page.tsx의 analyses 조인 참고) — 보여줄 리포트가 없으니 링크를 안 씌운다.
+  const cardBody = (
+    <>
       <div className="relative h-16 w-12 shrink-0 overflow-hidden rounded-btn bg-canvas">
         {item.image_url && <Image src={item.image_url} alt={item.name} fill className="object-cover" sizes="48px" />}
       </div>
@@ -82,6 +78,25 @@ export function CartItemCard({ item, checked, onToggle }: Props) {
           </p>
         )}
       </div>
+    </>
+  )
+
+  return (
+    <div className={`${CARD_SURFACE} flex items-center gap-3 p-3`}>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={() => onToggle(item.id)}
+        aria-label={`${item.name} 선택`}
+        className="h-4 w-4 shrink-0 accent-accent"
+      />
+      {item.latestVerdict ? (
+        <Link href={`/cart/${item.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+          {cardBody}
+        </Link>
+      ) : (
+        <div className="flex min-w-0 flex-1 items-center gap-3">{cardBody}</div>
+      )}
       <Button onClick={markAsBought} disabled={saving} className="shrink-0 px-3 py-2 text-xs">
         {saving ? '처리 중…' : '샀어요'}
       </Button>
