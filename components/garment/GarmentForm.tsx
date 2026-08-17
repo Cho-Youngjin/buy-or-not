@@ -191,7 +191,9 @@ export function GarmentForm({
         </div>
       )}
 
-      {manualFields.length > 0 && (
+      {/* sourceUrl이 null이면 "직접 등록하기"로 들어온 완전 수동 입력이라, 이 "일부만 실패" 안내가
+          맥락에 안 맞는다(계획 8이 도입한 합성 ParseResult는 모든 필드를 항상 실패 처리한다). */}
+      {manualFields.length > 0 && sourceUrl !== null && (
         <p className="rounded-btn border border-border bg-canvas p-3 text-sm text-ink-muted">
           일부 정보를 자동으로 가져오지 못했습니다. 아래 표시된 칸만 채워주세요.
         </p>
