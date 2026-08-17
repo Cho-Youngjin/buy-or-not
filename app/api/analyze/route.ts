@@ -56,8 +56,19 @@ export async function POST(request: Request) {
     .single()
   const strictness = Number(settings?.fit_strictness ?? 1)
 
-  const profile = await fetchPreferenceProfile(supabase, user.id, input.category, strictness)
-  const report = scoreDeviation(input.measurements, profile, input.category, strictness)
+  // 이 카테고리에서 사용자가 항목별로 직접 정한 허용오차. 있으면 위 배율 대신 그 값을 쓴다
+  // (lib/fit/engine.ts·lib/fit/profile.ts의 fieldOverrides 파라미터 주석 참고).
+  const { data: overrideRows } = await supabase
+    .from('fit_field_overrides')
+    .select('field_key, tolerance')
+    .eq('owner_id', user.id)
+    .eq('category', input.category)
+  const fieldOverrides = Object.fromEntries(
+    (overrideRows ?? []).map((row) => [row.field_key, Number(row.tolerance)]),
+  )
+
+  const profile = await fetchPreferenceProfile(supabase, user.id, input.category, strictness, fieldOverrides)
+  const report = scoreDeviation(input.measurements, profile, input.category, strictness, fieldOverrides)
 
   // 태깅은 registerGarment(등록 파이프라인)이 이미 끝냈다 — 여기서는 저장된 태그만 읽는다.
   // 이미지를 다시 보내지 않으므로 옷장이 몇 벌이든 판단 1회에 이미지 전송은 0장이다(스펙 §10-1).
