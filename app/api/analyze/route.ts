@@ -46,8 +46,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: '옷 정보를 저장하지 못했습니다.' }, { status: 500 })
   }
 
-  const profile = await fetchPreferenceProfile(supabase, user.id, input.category)
-  const report = scoreDeviation(input.measurements, profile, input.category)
+  // 사용자가 마이페이지에서 정한 허용오차 배율. numeric 컬럼은 PostgREST가 문자열로 돌려주므로
+  // Number()로 감싼다(garment_measurements.value를 다루는 기존 코드와 같은 이유).
+  // 선호 범위를 만드는 쪽과 편차를 재는 쪽에 반드시 같은 값을 넘겨야 한다(lib/fit/engine.ts 주석 참고).
+  const { data: settings } = await supabase
+    .from('profiles')
+    .select('fit_strictness')
+    .eq('id', user.id)
+    .single()
+  const strictness = Number(settings?.fit_strictness ?? 1)
+
+  const profile = await fetchPreferenceProfile(supabase, user.id, input.category, strictness)
+  const report = scoreDeviation(input.measurements, profile, input.category, strictness)
 
   // 태깅은 registerGarment(등록 파이프라인)이 이미 끝냈다 — 여기서는 저장된 태그만 읽는다.
   // 이미지를 다시 보내지 않으므로 옷장이 몇 벌이든 판단 1회에 이미지 전송은 0장이다(스펙 §10-1).
