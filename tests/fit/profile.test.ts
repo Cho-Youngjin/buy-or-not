@@ -105,3 +105,18 @@ describe('buildPreferenceProfile — 허용오차 배율', () => {
     ])
   })
 })
+
+describe('buildPreferenceProfile — 항목별 허용오차 직접 입력', () => {
+  const garments: GarmentForProfile[] = [
+    garment({ rating: 5, measurements: { 총장: 60 } }),
+    garment({ rating: 5, measurements: { 총장: 64 } }),
+    garment({ rating: 5, measurements: { 총장: 68 } }),
+  ]
+
+  it('fieldOverrides에 값이 있으면 toleranceMultiplier 대신 그 값으로 묶는다', () => {
+    // toleranceMultiplier=1(기본 3.0)이면 간격 4cm가 넘어 세 구간으로 쪼개지지만(바로 위 테스트),
+    // fieldOverrides로 총장을 5.0으로 고정하면 간격 4cm가 허용오차 안이라 한 구간으로 묶인다.
+    const profile = buildPreferenceProfile(garments, 'top', 1, { 총장: 5.0 })
+    expect(profile.fields['총장'].ranges).toEqual([{ lo: 60, hi: 68 }])
+  })
+})

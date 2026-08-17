@@ -63,6 +63,8 @@ export function buildPreferenceProfile(
   category: Category,
   /** scoreDeviation에 넘기는 값과 반드시 같아야 한다 — engine.ts의 같은 파라미터 주석 참고. */
   toleranceMultiplier = 1,
+  /** scoreDeviation에 넘기는 값과 반드시 같아야 한다 — engine.ts의 같은 파라미터 주석 참고. */
+  fieldOverrides: Record<string, number> = {},
 ): PreferenceProfile {
   const rules = FIT_RULES[category]
   if (!rules) return { status: 'insufficient', fields: {}, avgPrice: null }
@@ -97,7 +99,7 @@ export function buildPreferenceProfile(
       .filter((v): v is number => typeof v === 'number')
 
     fields[key] = {
-      ranges: clusterValues(successValues, rules[key].tolerance * toleranceMultiplier),
+      ranges: clusterValues(successValues, fieldOverrides[key] ?? rules[key].tolerance * toleranceMultiplier),
       upperWarnLimit: looseFailureValues.length > 0 ? Math.min(...looseFailureValues) : undefined,
       lowerWarnLimit: tightFailureValues.length > 0 ? Math.max(...tightFailureValues) : undefined,
     }
@@ -126,6 +128,7 @@ export async function fetchPreferenceProfile(
   ownerId: string,
   category: Category,
   toleranceMultiplier = 1,
+  fieldOverrides: Record<string, number> = {},
 ): Promise<PreferenceProfile> {
   const { data } = await supabase
     .from('garments')
@@ -143,5 +146,5 @@ export async function fetchPreferenceProfile(
     measurements: Object.fromEntries((g.garment_measurements ?? []).map((m) => [m.key, Number(m.value)])),
   }))
 
-  return buildPreferenceProfile(garments, category, toleranceMultiplier)
+  return buildPreferenceProfile(garments, category, toleranceMultiplier, fieldOverrides)
 }

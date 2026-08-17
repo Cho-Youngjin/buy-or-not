@@ -34,6 +34,12 @@ export function scoreDeviation(
    * 허용오차와 그 구간 밖 초과분을 잴 때 쓰는 허용오차가 다르면 [lo-t, hi+t] 개념이 깨진다.
    */
   toleranceMultiplier = 1,
+  /**
+   * 카테고리 안에서 사용자가 항목별로 직접 정한 허용오차(cm, fit_field_overrides).
+   * 값이 있으면 toleranceMultiplier 대신 그 값을 그대로 쓴다 — 이것도 buildPreferenceProfile에
+   * 넘기는 값과 반드시 같아야 한다(위 toleranceMultiplier 주석과 같은 이유).
+   */
+  fieldOverrides: Record<string, number> = {},
 ): DeviationReport {
   const rules = FIT_RULES[category]
   if (!rules || profile.status === 'insufficient') {
@@ -49,7 +55,7 @@ export function scoreDeviation(
     const fieldProfile = profile.fields[key]
     if (candidateValue == null || !fieldProfile || fieldProfile.ranges.length === 0) continue
 
-    const t = rule.tolerance * toleranceMultiplier
+    const t = fieldOverrides[key] ?? rule.tolerance * toleranceMultiplier
     // 범위가 여러 개(클러스터)일 수 있으므로, 각 범위에 대한 편차 중 가장 작은 값을 쓴다 —
     // 크롭 범위와 오버핏 범위를 둘 다 가진 사용자에게 후보가 둘 중 하나에만 맞아도 통과해야 한다.
     const excess = Math.min(

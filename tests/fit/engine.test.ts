@@ -124,3 +124,24 @@ describe('scoreDeviation — 허용오차 배율', () => {
     expect(relaxed.fitScore).toBe(0)
   })
 })
+
+describe('scoreDeviation — 항목별 허용오차 직접 입력', () => {
+  it('fieldOverrides에 값이 있으면 toleranceMultiplier 대신 그 값을 쓴다', () => {
+    const p = profile({ 총장: { ranges: [{ lo: 60, hi: 62 }] } })
+
+    // toleranceMultiplier=2라면 t=6.0(허용구간 [54,68])이라 65는 위반이 아니다.
+    // 하지만 fieldOverrides로 총장을 1.5로 고정하면 허용구간은 [58.5,63.5]가 되어
+    // 65는 1.5cm 초과(경계와 같아 경고 단계, 가중치 2 × 1 = 2점)한다.
+    const report = scoreDeviation({ 총장: 65 }, p, 'top', 2, { 총장: 1.5 })
+    expect(report.fields[0]).toMatchObject({ excess: 1.5, score: 2 })
+  })
+
+  it('fieldOverrides에 없는 항목은 toleranceMultiplier를 그대로 따른다', () => {
+    const p = profile({ 총장: { ranges: [{ lo: 60, hi: 62 }] } })
+
+    // fieldOverrides에 총장이 없으므로(허리단면만 있음) 배율 0.5만 적용된다(t = 3.0 × 0.5 = 1.5).
+    // 허용구간 [58.5, 63.5] 밖으로 65는 1.5cm 초과 — 경고(가중치 2 × 1 = 2점).
+    const report = scoreDeviation({ 총장: 65 }, p, 'top', 0.5, { 허리단면: 1.0 })
+    expect(report.fields[0]).toMatchObject({ excess: 1.5, score: 2 })
+  })
+})
