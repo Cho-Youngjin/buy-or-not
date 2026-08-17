@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createServerSupabase } from '@/lib/supabase/server'
-import { CartItemCard, type CartItem } from '@/components/garment/CartItemCard'
+import { CartList } from '@/components/garment/CartList'
+import type { CartItem } from '@/components/garment/CartItemCard'
 
 type AnalysisRow = { verdict: 'buy' | 'caution' | 'skip'; created_at: string }
 
@@ -40,9 +41,7 @@ export default async function CartPage() {
           고민 중인 옷이 없습니다. &quot;살까 말까&quot;에서 링크를 넣어보세요.
         </p>
       ) : (
-        <div className="space-y-2">
-          {items.map((item) => <CartItemCard key={item.id} item={item} />)}
-        </div>
+        <CartList items={items} />
       )}
     </main>
   )

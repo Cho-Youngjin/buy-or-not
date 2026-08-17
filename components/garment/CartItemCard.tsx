@@ -16,7 +16,18 @@ export type CartItem = {
 
 const VERDICT_LABELS = { buy: '살만함', caution: '주의', skip: '비추천' } as const
 
-export function CartItemCard({ item }: { item: CartItem }) {
+type Props = {
+  item: CartItem
+  checked: boolean
+  onToggle: (id: string) => void
+}
+
+/**
+ * 장바구니 카드 한 장.
+ * 선택 상태를 자기가 들지 않고 부모(CartList)에게서 받는 이유: "선택 삭제"는 여러 카드에
+ * 걸친 동작이라, 어느 카드가 선택됐는지는 카드 하나가 알 수 있는 정보가 아니다.
+ */
+export function CartItemCard({ item, checked, onToggle }: Props) {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
 
@@ -32,6 +43,13 @@ export function CartItemCard({ item }: { item: CartItem }) {
 
   return (
     <div className={`${CARD_SURFACE} flex items-center gap-3 p-3`}>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={() => onToggle(item.id)}
+        aria-label={`${item.name} 선택`}
+        className="h-4 w-4 shrink-0 accent-accent"
+      />
       <div className="relative h-16 w-12 shrink-0 overflow-hidden rounded-btn bg-canvas">
         {item.image_url && <Image src={item.image_url} alt={item.name} fill className="object-cover" sizes="48px" />}
       </div>
