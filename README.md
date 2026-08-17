@@ -214,3 +214,27 @@ Next.js 프로젝트 셋업부터 Supabase 스키마·RLS·구글 로그인까�
 **검증**: 상의 3벌(총장 60·62·72.5cm, 별점 5점)을 등록해 선호 구간이 `[60,62]`와 `[72.5,72.5]` 두 클러스터로 나뉘게 만든 뒤, 총장 65cm인 후보 옷을 강도 0.5배와 2.0배로 각각 판단했다. 0.5배(허용편차 1.5cm)에서는 "1.5cm 초과"로 주의 판정이, 2.0배(허용편차 6.0cm)에서는 "적합"으로 살만함 판정이 나왔다 — 계획 문서에 미리 손으로 계산해 둔 값과 정확히 일치했다. 검증용으로 만든 옷·분석 데이터는 확인 후 정리했고, 슬라이더는 기본값(1.0배)으로 되돌려 뒀다.
 
 **결과**: 계획 5(핏 판단 강도 설정, `docs/superpowers/plans/2026-08-17-plan5-fit-strictness.md`) 완료. `npm test`(107개) 전부 통과, `npm run build` 타입 오류 없이 성공.
+
+### 계획 6 — 코드 구조 정리 (2026-08-17)
+
+스펙 범위(Phase 0~8)와 계획 4·5까지 끝난 뒤, 이후 진행할 6개 하위 프로젝트(A~F) 중 첫 번째로 코드 구조를 정리했다. `LinkInputBar`·`AnalyzeLinkBar`·`RecommendLinkBar` 세 파일에 계획 3·4에서 두 번 "rule of three"로 기록만 해두고 미뤄뒀던 중복 약 90줄(무신사 링크 파싱 상태·API 호출·입력 UI)을 `useMusinsaParse` 훅과 `MusinsaLinkInput` 컴포넌트로 뽑아내고, `components/` 최상위 17개 파일을 도메인별 4개 폴더(`garment`/`analyze`/`share`/`account`)로 정리하는 순수 리팩터링이었다. 설계 근거는 `docs/superpowers/specs/2026-08-17-component-structure-design.md`.
+
+**설계 판단 1 — 사용자가 요청한 `App.jsx`를 만들지 않은 이유**
+
+사용자는 "React 컨벤션대로 폴더링하고 `App.jsx`는 컴포넌트를 조립하는 형태로 가볍게 해달라"고 요청했다. 하지만 이 프로젝트는 Create React App·Vite 같은 SPA가 아니라 Next.js App Router라서 `App.jsx`라는 파일 자체가 없고 만들 이유도 없다 — "화면은 조립만 하고 가볍게"라는 의도는 이미 `app/layout.tsx`와 각 `page.tsx`가 맡고 있다(예: `mypage/page.tsx`는 데이터를 가져와 `ShareToggle`·`FitStrictnessSlider`·`LogoutButton`을 배치하는 게 전부다). 요청을 문자 그대로 따르지 않고 왜 이 패턴이 안 맞는지 설명해 범위를 "중복 제거 + 폴더 정리"로 바로잡은 뒤 진행했다.
+
+**설계 판단 2 — 스펙에 적어둔 것과 달리 `onStart` 콜백은 두 컴포넌트 모두에 필요했다**
+
+스펙 초안에는 "새 링크를 파싱하기 시작할 때 이전 결과를 지우는" `onStart` 콜백이 `RecommendLinkBar`(추천 완료 메시지)에만 필요하다고 적었다. 그런데 계획을 쓰며 `AnalyzeLinkBar`의 실제 코드를 다시 읽어보니 그쪽 `handleSubmit`도 시작할 때 `setResult(null)`을 하고 있어 판단 결과 역시 지워야 했다 — 즉 세 파일 중 둘 다 필요했고 `LinkInputBar`만 필요 없었다. 문서를 먼저 쓰고 코드를 나중에 보면 이런 게 새는구나 싶어, 스펙을 고쳐 별도 커밋(`8c088c5`)으로 남겼다.
+
+**설계 판단 3 — `MusinsaLinkInput`을 `div`가 아니라 프래그먼트로 감싼 이유**
+
+부모 컴포넌트의 `space-y-4`는 `<form>`·에러 문구·`<GarmentForm>`을 각각 직접 자식으로 보고 사이 간격을 준다. 새로 뽑아낸 `MusinsaLinkInput`이 `<form>`과 에러 문구를 `<div>`로 한 번 더 감싸면 셋이 두 덩어리로 묶여 지금과 화면 간격이 달라진다. "기능 변화는 0"이 이 계획의 유일한 성공 기준이었던 만큼, 겉으로 티가 잘 안 나는 이런 차이가 오히려 놓치기 쉬웠다.
+
+**설계 판단 4 — 로직 변경(Task 1)과 경로 변경(Task 2)을 서로 다른 커밋으로 나눈 이유**
+
+Task 2는 24개 파일 48줄의 순수 기계적 import 경로 치환이다. 여기에 Task 1의 로직 diff가 섞이면 "이 줄이 실제로 동작을 바꾼 건지, 그냥 경로만 바뀐 건지"를 리뷰어가 한눈에 구분할 수 없다. `refactor: extract shared musinsa link parsing into hook and input`(`12f21f6`)과 `refactor: group components into domain folders`(`7d13fa5`)로 나눠 커밋했다.
+
+**검증**: 컴포넌트·훅을 렌더링해 테스트할 jsdom·React Testing Library가 이 프로젝트에 없어(Vitest가 `environment: 'node'`), 이 계획엔 새 단위 테스트가 없다. 대신 `npm run build`(순수 구조 변경에서는 import 경로가 하나라도 틀리면 반드시 걸리는, 오히려 제일 강력한 검증 수단)와 기존 107개 회귀 테스트, 그리고 브라우저 수동 검증을 조합했다. 옷장 등록(`/wardrobe`)·구매 판단(`/analyze`)은 실제 무신사 링크로 파싱→폼→저장까지 끝까지 진행했고, `onStart`가 이전 결과(판단 결과·추천 완료 메시지)를 새 링크 파싱 시작과 동시에 지우는 것도 확인했다. 친구 추천(`RecommendLinkBar`)은 로그인 계정과 옷장 주인이 같으면 컴포넌트 자체가 렌더링되지 않는 조건(`user.id !== profile.id`)이 있어, 두 번째 계정으로 직접 전환해 사용자가 같은 방식으로 확인해 줬다. 폴더 이동(Task 2) 이후에는 `/wardrobe`·`/analyze`·`/cart`·`/looks`·`/mypage`·`/u/[share_slug]`를 열어 콘솔 에러 없이 렌더링되는 것을 확인했고, 옛 경로(`@/components/대문자로시작`)를 가리키는 import가 하나도 남지 않았음을 `grep`으로 재확인했다. 검증 중 만든 옷장·추천 테스트 데이터는 정리했다.
+
+**결과**: 계획 6(코드 구조 정리, `docs/superpowers/plans/2026-08-17-plan6-component-structure.md`) 완료. `npm test`(107개) 전부 통과, `npm run build` 타입 오류 없이 성공. 합의한 A~F 중 A만 끝났고, 나머지(B 등록·삭제 UX 개선, C 수동 등록, D 추천→룩 흐름, E 핏 판단 정밀화, F 가격 인하 표시)는 각자 별도 스펙·계획 사이클로 이어서 진행한다.
