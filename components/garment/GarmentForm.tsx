@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { CATEGORY_LABELS, type Category } from '@/lib/types'
 import { PARSEABLE_FIELDS, type ParseResult, type ParseableField, type SizeTable } from '@/lib/musinsa/types'
 import { STANDARD_KEYS } from '@/lib/musinsa/measurements'
+import { findMatchingSize } from '@/lib/musinsa/sizeMatch'
 import { FIT_RULES } from '@/lib/fit/rules'
 import { PasteSizeTableField } from '@/components/garment/PasteSizeTableField'
 import { Button } from '@/components/ui/Button'
@@ -74,15 +75,13 @@ export function GarmentForm({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // 붙여넣은 표의 사이즈 라벨(예: "L")은 무신사 원문 그대로 보존하지만, 사용자가 이 입력칸에
-  // 소문자로 적어도("l") 매칭되도록 대소문자 구분 없이 비교한다.
   // 신발·액세서리는 FIT_RULES에 항목이 없어 애초에 핏 채점 대상이 아니므로(lib/fit/rules.ts 주석 참고),
   // 실측 입력 UI 자체를 보여주지 않는다 — 의미 없는 총장·가슴단면 입력칸을 채우게 하지 않기 위해서다.
   const hasMeasurableFit = category in FIT_RULES
 
-  const matchedSizeKey = Object.keys(pastedSizeTable).find(
-    (key) => key.toLowerCase() === size.trim().toLowerCase(),
-  )
+  // 옵션 라벨("2 (L)")과 붙여넣은 표의 행 라벨("L")이 글자까지 같지 않아도 이어준다.
+  // 매칭 규칙은 lib/musinsa/sizeMatch.ts에 순수 함수로 있다(단위 테스트 대상).
+  const matchedSizeKey = findMatchingSize(Object.keys(pastedSizeTable), size)
   const parsedForSize = matchedSizeKey ? pastedSizeTable[matchedSizeKey] : undefined
   const hasParsedForSize = Boolean(parsedForSize && Object.keys(parsedForSize).length > 0)
 
