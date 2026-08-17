@@ -169,11 +169,19 @@ describe('outfits', () => {
     expect(error).toBeNull()
   })
 
-  it('비공개 옷장으로는(자기 자신이 대상이어도) 룩을 만들 수 없다', async () => {
-    // bob 본인은 공개로 전환한 적이 없으므로 is_wardrobe_public=false다.
+  it('비공개 옷장이어도 본인은 자기 옷으로 룩을 만들 수 있다', async () => {
+    // bob 본인은 공개로 전환한 적이 없으므로 is_wardrobe_public=false다 — 그래도 본인 옷장이면 허용돼야 한다.
     const { error } = await bob.client
       .from('outfits')
       .insert({ wardrobe_owner_id: bob.id, author_id: bob.id, title: '내 룩' })
+    expect(error).toBeNull()
+  })
+
+  it('다른 사람은 남의 비공개 옷장으로 룩을 만들 수 없다', async () => {
+    // bob의 옷장은 여전히 비공개다 — alice가 bob 대신 룩을 만들려 하면 막혀야 한다.
+    const { error } = await alice.client
+      .from('outfits')
+      .insert({ wardrobe_owner_id: bob.id, author_id: alice.id, title: '침입 시도' })
     expect(error).not.toBeNull()
   })
 
