@@ -12,6 +12,10 @@ export type CartItem = {
   brand: string | null
   image_url: string | null
   latestVerdict: 'buy' | 'caution' | 'skip' | null
+  /** 등록 당시 가격. */
+  price: number | null
+  /** 가장 최근에 다시 확인한 가격. 아직 한 번도 재확인 안 했으면 null(= price와 같다고 본다). */
+  lastKnownPrice: number | null
 }
 
 const VERDICT_LABELS = { buy: '살만함', caution: '주의', skip: '비추천' } as const
@@ -63,6 +67,20 @@ export function CartItemCard({ item, checked, onToggle }: Props) {
             </span>
           )}
         </div>
+        {item.price != null && (
+          <p className="mt-1 text-xs">
+            {item.lastKnownPrice != null && item.lastKnownPrice < item.price ? (
+              <>
+                <span className="text-ink-muted line-through">{item.price.toLocaleString()}원</span>
+                {' → '}
+                <span className="font-medium text-ink">{item.lastKnownPrice.toLocaleString()}원</span>
+                <span className={`${pillClass('buy')} ml-1 px-1.5 py-0.5 text-[10px]`}>인하</span>
+              </>
+            ) : (
+              <span className="text-ink-muted">{(item.lastKnownPrice ?? item.price).toLocaleString()}원</span>
+            )}
+          </p>
+        )}
       </div>
       <Button onClick={markAsBought} disabled={saving} className="shrink-0 px-3 py-2 text-xs">
         {saving ? '처리 중…' : '샀어요'}

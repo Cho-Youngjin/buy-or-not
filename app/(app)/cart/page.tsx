@@ -11,6 +11,8 @@ type CartGarmentRow = {
   name: string
   brand: string | null
   image_url: string | null
+  price: number | null
+  last_known_price: number | null
   analyses: AnalysisRow[] | null
 }
 
@@ -21,7 +23,7 @@ export default async function CartPage() {
 
   const { data: garments } = await supabase
     .from('garments')
-    .select('id, name, brand, image_url, analyses(verdict, created_at)')
+    .select('id, name, brand, image_url, price, last_known_price, analyses(verdict, created_at)')
     .eq('owner_id', user.id)
     .eq('status', 'considering')
     .order('created_at', { ascending: false })
@@ -30,7 +32,15 @@ export default async function CartPage() {
   const items: CartItem[] = (garments ?? []).map((g) => {
     const analyses = g.analyses ?? []
     const latest = [...analyses].sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
-    return { id: g.id, name: g.name, brand: g.brand, image_url: g.image_url, latestVerdict: latest?.verdict ?? null }
+    return {
+      id: g.id,
+      name: g.name,
+      brand: g.brand,
+      image_url: g.image_url,
+      latestVerdict: latest?.verdict ?? null,
+      price: g.price,
+      lastKnownPrice: g.last_known_price,
+    }
   })
 
   return (
