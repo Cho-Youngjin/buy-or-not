@@ -7,6 +7,7 @@ import { createServerSupabase } from '@/lib/supabase/server'
 const Body = z.object({
   isWardrobePublic: z.boolean().optional(),
   fitStrictness: z.number().min(0.5).max(2).optional(),
+  theme: z.enum(['system', 'light', 'dark']).optional(),
 })
 
 export async function PATCH(request: Request) {
@@ -19,12 +20,15 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: '입력값이 올바르지 않습니다.' }, { status: 400 })
   }
 
-  const updates: Record<string, boolean | number> = {}
+  const updates: Record<string, boolean | number | string> = {}
   if (parsed.data.isWardrobePublic !== undefined) {
     updates.is_wardrobe_public = parsed.data.isWardrobePublic
   }
   if (parsed.data.fitStrictness !== undefined) {
     updates.fit_strictness = parsed.data.fitStrictness
+  }
+  if (parsed.data.theme !== undefined) {
+    updates.theme = parsed.data.theme
   }
   // 빈 요청은 성공으로 처리하지 않는다 — 클라이언트 버그를 조용히 삼키지 않기 위해서다.
   if (Object.keys(updates).length === 0) {
