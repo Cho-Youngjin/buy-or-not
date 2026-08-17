@@ -274,3 +274,31 @@ Task 2는 24개 파일 48줄의 순수 기계적 import 경로 치환이다. 여
 **검증**: `sizeMatch.ts`는 TDD로 진행해 실패하는 테스트(모듈 없음) → 최소 구현 → 통과를 확인했다(16개). 나머지는 계획 6과 같은 이유로 `npm run build`(123개 타입 검사) + `npm test`(123개 회귀) + 브라우저 수동 검증을 조합했다. 폼 접기는 `/wardrobe`·`/analyze`에서 링크를 불러온 뒤 접었을 때 URL과 폼이 함께 사라지고 옷이 등록되지 않는 것을 확인했다. 사이즈 매칭은 실제 브라우저 클립보드 붙여넣기를 자동화로 재현하기 어려워, `DataTransfer`로 합성 클립보드(`<li>L</li>` + 실측 `<table>`)를 만들어 `paste` 이벤트를 실제 `PasteSizeTableField`에 디스패치하는 방식으로 검증했다 — 사이즈칸에 `"2 (L)"`을 넣고 라벨이 `"L"`뿐인 표를 붙였을 때 "2 (L) 사이즈 값이 자동으로 채워졌습니다"가 뜨는 것을 확인했다. 삭제 아이콘 버튼은 검증용 옷을 새로 등록해 2단계 확인 흐름과 실제 삭제까지 거쳐 정리했다. 장바구니는 세 아이템을 담아 체크박스 상시 노출, "N개 선택됨" 표시 전환, 선택 삭제(1개만 지워지고 나머지는 남는지), 전체 삭제(장바구니가 완전히 비는지)까지 전부 실제로 눌러 확인했다.
 
 **결과**: 계획 7(등록·삭제 UX 개선, `docs/superpowers/plans/2026-08-17-plan7-registration-deletion-ux.md`) 완료. `npm test`(123개) 전부 통과, `npm run build` 타입 오류 없이 성공. 이걸로 합의한 A~F 중 B까지 끝났다. 다음은 C(수동 등록)다.
+
+### 계획 8 — 수동 등록 (2026-08-17)
+
+합의한 A~F 중 C. 무신사 링크가 없는 보세 옷도 옷장(`/wardrobe`)·구매 판단(`/analyze`)에 등록할 수 있게 했다. 설계 근거는 `docs/superpowers/specs/2026-08-17-manual-registration-design.md`.
+
+**설계 판단 1 — 새 폼을 만들지 않고 기존 `GarmentForm`을 재사용한 것**
+
+처음엔 탭 UI와 별도 컴포넌트로 설계했지만, 사용자가 "무신사 상품 등록 폼 그대로 쓰고 사진만 넣을 수 있게 하면 될 것 같다"고 정정해줘서 훨씬 단순해졌다. `GarmentForm`은 파싱이 전부 실패하면 이미 완전 수동 입력 폼이 되도록 짜여 있었다(계획 1) — "링크 없이도" 그 상태를 바로 트리거하는 합성 `ParseResult`(`createManualParseResult`, `goodsNo`는 `crypto.randomUUID()`) 하나만 추가하면 충분했다.
+
+**설계 판단 2 — `goodsNo`에 실제 상품번호 대신 UUID를 쓴 이유**
+
+DB 컬럼(`garments.goods_no`)은 nullable이지만, `registerGarment`의 이미지 저장 경로·중복 검사 로직은 값이 있다는 전제로 짜여 있다. null로 두고 그 로직들을 전부 예외 처리하는 대신, 실제로 상품번호인지 검증하는 곳이 코드베이스 어디에도 없다는 걸 계획 단계에서 확인하고 합성 UUID를 그대로 태웠다. 덕분에 `computeParseMode`도 수정 없이 정확히 `'manual'`을 계산했다.
+
+**겪은 문제 — 사진 업로드 API를 따로 뒀더니 `registerGarment`가 같은 사진을 두 번 저장했다**
+
+`/api/garments/upload-image`로 미리 올린 사진 URL을 `GarmentForm`이 넘기면, `registerGarment`는 그 URL이 어디서 왔는지 모르고 무조건 `copyImageToStorage`(URL을 내려받아 다시 업로드)를 불렀다. 실제로 첫 등록을 검증해보니 최종 `image_url`이 업로드 API가 만든 `manual/{uid}/...` 경로가 아니라 `copyImageToStorage`가 새로 만든 `{goodsNo}/{colorHash}.png` 경로였다 — 사진이 버킷에 두 벌 저장되고 원본은 아무 데서도 참조되지 않는 채로 남아 있었다. `copyImageToStorage` 맨 앞에 "이미 우리 버킷 공개 URL이면 그대로 쓴다"는 조건 하나를 추가해 고쳤고, 고친 뒤 다시 등록해 `image_url`이 `manual/...` 그대로 유지되는 것을 DB 쿼리로 확인했다.
+
+**설계 판단 3 — URL을 문자열로 직접 조립하지 않고 SDK로 얻은 이유**
+
+이중 업로드 방지 조건(`imageUrl.startsWith(...)`)에 쓸 접두어를 `${NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/garments/`처럼 손으로 이어붙이려다, 환경변수에 트레일링 슬래시가 있는지 없는지 같은 사소한 차이로 어긋날 수 있다는 걸 깨닫고 `supabaseAdmin.storage.from(BUCKET).getPublicUrl('').data.publicUrl`로 SDK가 실제로 만드는 값을 그대로 가져다 썼다.
+
+**겪은 문제 — 브라우저 자동화로 업로드 검증용 이미지 파일을 만들어야 했다**
+
+로컬에 마침 맞는 크기의 테스트 이미지가 없어서, 1×1 픽셀 PNG(정상 케이스)·5MB 더미 PNG(용량 초과 케이스)·가짜 GIF(허용 안 되는 타입 케이스) 세 개를 Node 스크립트로 즉석에서 만들어 각각 업로드해봤다. 세 경우 모두 정확한 에러 문구("4MB 이하 파일만 올릴 수 있습니다.", "JPG·PNG·WEBP 파일만 올릴 수 있습니다.")가 뜨고, 정상 파일만 실제로 등록까지 이어지는 것을 확인했다.
+
+**검증**: `manualParseResult.ts`는 TDD로 진행해 실패하는 테스트(모듈 없음) → 최소 구현 → 통과를 확인했다(3개). 나머지는 앞선 계획들과 같은 이유로 `npm run build` + `npm test`(126개) + 브라우저 수동 검증을 조합했다. "직접 등록하기"를 눌러 링크 입력 없이 바로 빈 폼이 뜨는 것, "접기"로 원래 화면에 돌아가는 것, 카테고리를 "상의"로 바꾸면 실측 섹션이 즉시 나타나는 것(계획 6에서 만든 `hasMeasurableFit` 로직이 합성 `ParseResult`에서도 그대로 동작함)을 확인했다. 사진 업로드는 위 세 가지 케이스(정상·용량 초과·타입 불허)를 전부 실제로 눌러봤고, DB·Storage 쿼리로 최종 `image_url`과 저장된 오브젝트 경로까지 확인했다. 검증용으로 만든 옷 2벌은 삭제 버튼으로 정리했다.
+
+**결과**: 계획 8(수동 등록, `docs/superpowers/plans/2026-08-17-plan8-manual-registration.md`) 완료. `npm test`(126개) 전부 통과, `npm run build` 타입 오류 없이 성공. 이걸로 합의한 A~F 중 A·B·C가 끝났다. 다음은 D(추천 → 룩 흐름)다.
