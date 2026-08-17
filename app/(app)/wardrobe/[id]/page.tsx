@@ -72,7 +72,7 @@ export default async function GarmentDetailPage({ params }: Props) {
         <MeasurementsTable measurements={measurements} />
       </section>
 
-      <section>
+      <section id="선호도">
         <h2 className="mb-2 text-sm font-medium text-ink">선호도</h2>
         <PreferenceForm
           garmentId={garment.id}

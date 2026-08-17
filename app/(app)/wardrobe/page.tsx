@@ -19,7 +19,7 @@ export default async function WardrobePage({ searchParams }: Props) {
 
   let query = supabase
     .from('garments')
-    .select('id, name, brand, price, image_url, category, color_option, size_option')
+    .select('id, name, brand, price, image_url, category, color_option, size_option, rating')
     .eq('owner_id', user.id)
     .eq('status', 'owned')
     .order('created_at', { ascending: false })
