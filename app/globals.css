@@ -1,6 +1,74 @@
 @import "tailwindcss";
 
 /*
+ * Pretendard(한글 가변폭 산세리프)를 CDN(@font-face)으로 로드한다. next/font는 구글 폰트만
+ * 자동 최적화해주고 임의 CDN 폰트는 감싸주지 못해서, 여기서 표준 @font-face로 직접 선언했다.
+ * font-display: swap이라 폰트 로딩 전에는 시스템 폰트로 보이다가 로드되면 교체된다(레이아웃 시프트 감수).
+ */
+@font-face {
+  font-family: 'Pretendard';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-Thin.woff2') format('woff2');
+  font-weight: 100;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Pretendard';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-ExtraLight.woff2') format('woff2');
+  font-weight: 200;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Pretendard';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-Light.woff2') format('woff2');
+  font-weight: 300;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Pretendard';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Pretendard';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Pretendard';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Pretendard';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Pretendard';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-ExtraBold.woff2') format('woff2');
+  font-weight: 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Pretendard';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/pretendard@1.0/Pretendard-Black.woff2') format('woff2');
+  font-weight: 900;
+  font-display: swap;
+}
+
+/*
  * 색·모서리 토큰. 값이 리터럴이므로 inline 없이 @theme에 둔다.
  * Tailwind v4는 --color-x를 bg-x, text-x, border-x로, --radius-x를 rounded-x로 자동 노출한다.
  * 새 색이 필요해 보이면 여기 추가하고, 컴포넌트에 하드코딩하지 않는다.
@@ -31,17 +99,18 @@
 /*
  * 폰트는 next/font가 <html>에 심는 CSS 변수를 가리켜야 하므로 inline이 필요하다
  * (inline이 없으면 Tailwind가 var()를 한 겹 더 감싸 폰트 변수 해석이 어긋난다).
+ * 본문 서체는 Pretendard(위 @font-face)로 바꾸고, Geist Sans는 로드 실패 시 폴백으로만 남긴다.
+ * 숫자(실측값) 표시에 쓰는 font-mono는 그대로 Geist Mono를 쓴다 — 한글 CDN 폰트에는 고정폭 mono가 없다.
  */
 @theme inline {
-  --font-sans: var(--font-geist-sans);
+  --font-sans: 'Pretendard', var(--font-geist-sans), system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
 }
 
 body {
   background: var(--color-canvas);
   color: var(--color-ink);
-  /* 기존 코드는 여기서 Arial을 강제해 레이아웃이 로드한 Geist를 무력화하고 있었다. */
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-sans);
 }
 
 /*
