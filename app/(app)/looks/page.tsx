@@ -49,7 +49,7 @@ export default async function LooksPage() {
     <main className="mx-auto max-w-2xl space-y-6 px-4 py-8">
       <h1 className="text-2xl font-medium tracking-tight text-ink">나를 위한 룩</h1>
 
-      <OutfitBuilder wardrobeOwnerId={user.id} garments={garments ?? []} />
+      <OutfitBuilder wardrobeOwnerId={user.id} garments={garments ?? []} defaultCollapsed />
 
       {looks.length === 0 ? (
         <p className="rounded-card border border-dashed border-border p-10 text-center text-sm text-ink-muted">

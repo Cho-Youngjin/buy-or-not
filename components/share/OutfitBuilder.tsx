@@ -21,10 +21,14 @@ type Props = {
   preselectId?: string | null
   /** 룩 생성에 성공하면 호출한다. RecommendAndBuild가 이걸로 추천 목록을 비운다. */
   onSubmitted?: () => void
+  /** true면 처음에 접힌 채로 렌더링한다(기본값 false). /looks처럼 옷장이 크면
+      폼이 이미 만든 룩 목록을 화면 밖으로 밀어내는 걸 막기 위해 쓴다. */
+  defaultCollapsed?: boolean
 }
 
-export function OutfitBuilder({ wardrobeOwnerId, garments, preselectId, onSubmitted }: Props) {
+export function OutfitBuilder({ wardrobeOwnerId, garments, preselectId, onSubmitted, defaultCollapsed }: Props) {
   const router = useRouter()
+  const [collapsed, setCollapsed] = useState(defaultCollapsed ?? false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [selected, setSelected] = useState<string[]>([])
@@ -33,10 +37,11 @@ export function OutfitBuilder({ wardrobeOwnerId, garments, preselectId, onSubmit
   const [done, setDone] = useState(false)
 
   // 추천 직후 preselectId가 바뀔 때마다 자동으로 체크한다. 이미 선택돼 있으면(같은 값이 다시
-  // 와도) 중복으로 더하지 않는다.
+  // 와도) 중복으로 더하지 않는다. 접혀 있었다면 방금 추천한 아이템이 바로 보이게 펼친다.
   useEffect(() => {
     if (!preselectId) return
     setSelected((prev) => (prev.includes(preselectId) ? prev : [...prev, preselectId]))
+    setCollapsed(false)
   }, [preselectId])
 
   function toggle(id: string) {
@@ -78,42 +83,55 @@ export function OutfitBuilder({ wardrobeOwnerId, garments, preselectId, onSubmit
   }
 
   return (
-    <form onSubmit={handleSubmit} className={`${CARD_SURFACE} space-y-3 p-5`}>
-      <input value={title} onChange={(e) => setTitle(e.target.value)} required
-        placeholder="룩 제목" className={INPUT} />
-      <textarea value={description} onChange={(e) => setDescription(e.target.value)}
-        placeholder="설명 (선택)" rows={2} className={INPUT} />
+    <div className={`${CARD_SURFACE} space-y-3 p-5`}>
+      <button
+        type="button"
+        onClick={() => setCollapsed((prev) => !prev)}
+        className="flex w-full items-center justify-between text-left"
+      >
+        <span className="text-sm font-medium text-ink">룩 만들기</span>
+        <span className="text-sm text-ink-muted underline">{collapsed ? '펼치기' : '접기'}</span>
+      </button>
 
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-        {garments.map((garment) => (
-          <label
-            key={garment.id}
-            className={`relative aspect-[3/4] cursor-pointer overflow-hidden rounded-btn border-2 transition ${
-              selected.includes(garment.id) ? 'border-accent' : 'border-transparent'
-            }`}
-          >
-            <input type="checkbox" checked={selected.includes(garment.id)} onChange={() => toggle(garment.id)}
-              className="sr-only" />
-            <div className="relative h-full w-full bg-canvas">
-              {garment.image_url && (
-                <Image src={garment.image_url} alt={garment.name} fill className="object-cover" sizes="150px" />
-              )}
-            </div>
-            {garment.justRecommended && (
-              <span className={`${pillClass('active')} absolute left-1 top-1 px-2 py-0.5 text-xs`}>
-                추천함
-              </span>
-            )}
-          </label>
-        ))}
-      </div>
+      {!collapsed && (
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <input value={title} onChange={(e) => setTitle(e.target.value)} required
+            placeholder="룩 제목" className={INPUT} />
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)}
+            placeholder="설명 (선택)" rows={2} className={INPUT} />
 
-      {error && <p className="text-sm text-danger">{error}</p>}
-      {done && <p className="text-sm text-ink">룩을 만들었습니다!</p>}
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+            {garments.map((garment) => (
+              <label
+                key={garment.id}
+                className={`relative aspect-[3/4] cursor-pointer overflow-hidden rounded-btn border-2 transition ${
+                  selected.includes(garment.id) ? 'border-accent' : 'border-transparent'
+                }`}
+              >
+                <input type="checkbox" checked={selected.includes(garment.id)} onChange={() => toggle(garment.id)}
+                  className="sr-only" />
+                <div className="relative h-full w-full bg-canvas">
+                  {garment.image_url && (
+                    <Image src={garment.image_url} alt={garment.name} fill className="object-cover" sizes="150px" />
+                  )}
+                </div>
+                {garment.justRecommended && (
+                  <span className={`${pillClass('active')} absolute left-1 top-1 px-2 py-0.5 text-xs`}>
+                    추천함
+                  </span>
+                )}
+              </label>
+            ))}
+          </div>
 
-      <Button type="submit" disabled={submitting || selected.length === 0} className="w-full py-3">
-        {submitting ? '만드는 중…' : `룩 만들기 (${selected.length}벌 선택)`}
-      </Button>
-    </form>
+          {error && <p className="text-sm text-danger">{error}</p>}
+          {done && <p className="text-sm text-ink">룩을 만들었습니다!</p>}
+
+          <Button type="submit" disabled={submitting || selected.length === 0} className="w-full py-3">
+            {submitting ? '만드는 중…' : `룩 만들기 (${selected.length}벌 선택)`}
+          </Button>
+        </form>
+      )}
+    </div>
   )
 }
