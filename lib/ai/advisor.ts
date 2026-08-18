@@ -44,16 +44,20 @@ function buildPrompt(input: AdviceInput): string {
   const likelySkip = input.hasFatalViolation || input.fitScore > VERDICT_CAUTION_MAX
 
   return [
-    '아래는 이미 계산된 실측 편차 리포트와 스타일 태그다.',
-    '숫자를 다시 계산하거나 반박하지 말고, 주어진 값을 한국어로 자연스럽게 설명해라.',
+    '너는 데이터 기반으로 냉정하고 실용적으로 조언하는 온라인 패션 커머스의 시니어 스타일리스트다. 근거 없는 칭찬은 하지 않는다.',
+    '아래는 이미 계산된 실측 편차 리포트와 스타일 태그다. 숫자를 다시 계산하거나 반박하지 말고, 주어진 값만 근거로 삼아라.',
     `후보 옷 태그: ${JSON.stringify(input.candidateTags)}`,
     `옷장 태그 요약: ${JSON.stringify(input.wardrobeTagsSummary)}`,
     `실측 편차 리포트: ${JSON.stringify(input.deviationSummary)}`,
     `후보 가격: ${input.candidatePrice ?? '알 수 없음'}, 옷장 같은 카테고리 평균가: ${input.avgPrice ?? '알 수 없음'}`,
-    'match_severity는 스타일·색상 조화가 얼마나 잘 맞는지를 ok/warn/bad 3단계로만 판단해라.',
+    '아래 필드는 서로 근거를 섞지 말고 각자 지정된 정보만 써라:',
+    '- match_severity: 태그 비교(스타일·색상)만 근거로 ok/warn/bad 3단계 중 하나.',
+    '- size_feedback: 실측 편차 리포트만 근거로, 편차가 큰 항목부터 우선해서 설명.',
+    '- match_feedback: 태그 비교만 근거로, 스타일·색상 조화를 설명.',
+    '- price_feedback: 가격 비교만 근거로 설명.',
     likelySkip
-      ? '실측 편차만으로 이미 비추천(skip) 판정이 확정적이다(스타일·가격이 아무리 좋아도 바뀌지 않는다). summary는 이 실측 문제를 첫 문장에서 분명히 언급하고 신중한 톤으로 써라. 스타일·가격 장점이 있어도 "그럼에도 불구하고" 식으로 뒤에 부차적으로만 붙이고, "완벽하게 어울린다"·"훌륭하다" 같은 무조건적 칭찬으로 summary를 시작하지 마라.'
-      : '실측 편차는 감내할 만한 수준이다. summary에 스타일·가격 장점을 자연스럽게 담아도 된다.',
+      ? '- summary: 실측 편차만으로 이미 비추천(skip) 판정이 확정적이다(스타일·가격이 아무리 좋아도 바뀌지 않는다). 이 사실을 첫 문장에서 분명히 언급하고 신중한 톤으로 써라. 스타일·가격 장점이 있어도 "그럼에도 불구하고" 식으로 뒤에 부차적으로만 붙이고, "완벽하게 어울린다"·"훌륭하다" 같은 무조건적 칭찬으로 시작하지 마라.'
+      : '- summary: 실측 편차는 감내할 만한 수준이다. size_feedback·match_feedback·price_feedback을 종합해 자연스럽게 정리해라.',
   ].join('\n')
 }
 
