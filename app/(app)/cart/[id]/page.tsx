@@ -38,28 +38,30 @@ function asFeedback(value: unknown): FeedbackData | null {
 }
 
 export default async function CartReportPage({ params }: Props) {
-  const supabase = await createServerSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/')
-
   const { id } = await params
+  const supabase = await createServerSupabase()
 
-  const { data: garment } = await supabase
-    .from('garments')
-    .select('id, name, brand, category')
-    .eq('id', id)
-    .single<GarmentHeader>()
+  // 세 요청 모두 params의 id(그리고 RLS)만으로 결정되고 서로의 결과를 기다릴 필요가 없다 —
+  // 순서대로 기다리는 대신 동시에 보내 세 번의 왕복을 한 번으로 줄인다.
+  const [{ data: { user } }, { data: garment }, { data: analysisRows }] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase
+      .from('garments')
+      .select('id, name, brand, category')
+      .eq('id', id)
+      .single<GarmentHeader>(),
+    supabase
+      .from('analyses')
+      .select('verdict, report, feedback, created_at')
+      .eq('garment_id', id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .overrideTypes<AnalysisRow[], { merge: false }>(),
+  ])
+  if (!user) redirect('/')
 
   // RLS(garments_select)가 남의 옷이면 이미 null을 돌려준다 — 별도 소유자 검사가 필요 없다.
   if (!garment) notFound()
-
-  const { data: analysisRows } = await supabase
-    .from('analyses')
-    .select('verdict, report, feedback, created_at')
-    .eq('garment_id', id)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .overrideTypes<AnalysisRow[], { merge: false }>()
 
   const analysis = analysisRows?.[0] ?? null
 

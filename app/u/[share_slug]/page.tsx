@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { cache } from 'react'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import { createServerSupabase } from '@/lib/supabase/server'
@@ -13,10 +14,23 @@ type Props = {
   searchParams: Promise<{ category?: string }>
 }
 
+// generateMetadata와 페이지 컴포넌트가 둘 다 이 프로필을 필요로 한다 — Next.js가 같은 요청
+// 안에서 두 함수를 모두 실행하므로, cache()로 감싸지 않으면 같은 조회를 두 번 보낸다.
+// (인자가 같은 호출끼리만 요청 하나 동안 결과를 재사용한다 — 클라이언트를 인자로 받으면
+// 매번 새 인스턴스라 캐시가 안 먹으므로, 여기서 직접 createServerSupabase()를 부른다.)
+const getProfileBySlug = cache(async (share_slug: string) => {
+  const supabase = await createServerSupabase()
+  const { data } = await supabase
+    .from('profiles')
+    .select('id, nickname, is_wardrobe_public')
+    .eq('share_slug', share_slug)
+    .single()
+  return data
+})
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { share_slug } = await params
-  const supabase = await createServerSupabase()
-  const { data: profile } = await supabase.from('profiles').select('nickname').eq('share_slug', share_slug).single()
+  const profile = await getProfileBySlug(share_slug)
   const nickname = profile?.nickname ?? '사용자'
 
   return {
@@ -36,15 +50,15 @@ type PublicGarment = {
 }
 
 export default async function SharedWardrobePage({ params, searchParams }: Props) {
-  const supabase = await createServerSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-
   const { share_slug } = await params
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, nickname, is_wardrobe_public')
-    .eq('share_slug', share_slug)
-    .single()
+  const supabase = await createServerSupabase()
+
+  // 로그인 여부 확인과 프로필 조회는 서로 무관하다(프로필은 share_slug로만 찾는다) —
+  // 동시에 보내 왕복을 하나로 줄인다.
+  const [{ data: { user } }, profile] = await Promise.all([
+    supabase.auth.getUser(),
+    getProfileBySlug(share_slug),
+  ])
 
   // RLS(profiles_select: 본인 또는 is_wardrobe_public)가 비공개 프로필은 이미 null로
   // 돌려주지만, is_wardrobe_public을 한 번 더 확인해 "본인이 비로그인 상태로 자기 비공개

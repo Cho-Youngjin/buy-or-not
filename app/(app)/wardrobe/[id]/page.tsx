@@ -26,16 +26,20 @@ type GarmentDetail = {
 }
 
 export default async function GarmentDetailPage({ params }: Props) {
-  const supabase = await createServerSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/')
-
   const { id } = await params
-  const { data: garment } = await supabase
-    .from('garments')
-    .select('id, name, brand, price, image_url, category, color_option, size_option, rating, fit_tag, wear_frequency, garment_measurements(key, value)')
-    .eq('id', id)
-    .single<GarmentDetail>()
+  const supabase = await createServerSupabase()
+
+  // 이 쿼리는 id로만 걸러 user를 전혀 안 쓴다(RLS가 소유자 검증을 대신한다) — getUser()의
+  // 결과를 기다리지 않고 동시에 보내 왕복을 하나로 줄인다.
+  const [{ data: { user } }, { data: garment }] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase
+      .from('garments')
+      .select('id, name, brand, price, image_url, category, color_option, size_option, rating, fit_tag, wear_frequency, garment_measurements(key, value)')
+      .eq('id', id)
+      .single<GarmentDetail>(),
+  ])
+  if (!user) redirect('/')
 
   // RLS가 남의 옷이면 이 시점에 이미 null을 돌려준다 — 별도 소유자 검사가 필요 없다.
   if (!garment) notFound()

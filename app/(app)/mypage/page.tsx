@@ -18,16 +18,18 @@ export default async function MyPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('nickname, avatar_url, share_slug, is_wardrobe_public, fit_strictness, theme')
-    .eq('id', user.id)
-    .single()
-
-  const { data: fitOverrideRows } = await supabase
-    .from('fit_field_overrides')
-    .select('category, field_key, tolerance')
-    .eq('owner_id', user.id)
+  // 둘 다 user.id만 있으면 되고 서로의 결과와 무관하다 — 동시에 보낸다.
+  const [{ data: profile }, { data: fitOverrideRows }] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('nickname, avatar_url, share_slug, is_wardrobe_public, fit_strictness, theme')
+      .eq('id', user.id)
+      .single(),
+    supabase
+      .from('fit_field_overrides')
+      .select('category, field_key, tolerance')
+      .eq('owner_id', user.id),
+  ])
   const fitOverrides = (fitOverrideRows ?? []).map((row) => ({
     category: row.category,
     fieldKey: row.field_key,

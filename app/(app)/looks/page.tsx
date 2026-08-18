@@ -18,22 +18,24 @@ export default async function LooksPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
 
-  const { data: garments } = await supabase
-    .from('garments')
-    .select('id, name, image_url')
-    .eq('owner_id', user.id)
-    .eq('status', 'owned')
-    .order('created_at', { ascending: false })
-    .overrideTypes<BuilderGarment[], { merge: false }>()
-
+  // 둘 다 user.id만 있으면 되고 서로의 결과와 무관하다 — 동시에 보낸다.
   // profiles를 참조하는 외래키가 outfits에 두 개(wardrobe_owner_id, author_id)라
   // PostgREST 임베딩에 어떤 컬럼을 쓸지 !author_id로 명시해야 한다.
-  const { data: outfits } = await supabase
-    .from('outfits')
-    .select('id, title, description, author:profiles!author_id(nickname), outfit_items(garments(id, name, image_url))')
-    .eq('wardrobe_owner_id', user.id)
-    .order('created_at', { ascending: false })
-    .overrideTypes<LookRow[], { merge: false }>()
+  const [{ data: garments }, { data: outfits }] = await Promise.all([
+    supabase
+      .from('garments')
+      .select('id, name, image_url')
+      .eq('owner_id', user.id)
+      .eq('status', 'owned')
+      .order('created_at', { ascending: false })
+      .overrideTypes<BuilderGarment[], { merge: false }>(),
+    supabase
+      .from('outfits')
+      .select('id, title, description, author:profiles!author_id(nickname), outfit_items(garments(id, name, image_url))')
+      .eq('wardrobe_owner_id', user.id)
+      .order('created_at', { ascending: false })
+      .overrideTypes<LookRow[], { merge: false }>(),
+  ])
 
   const looks: Look[] = (outfits ?? []).map((outfit) => ({
     id: outfit.id,

@@ -21,6 +21,9 @@ export default async function CartPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/')
 
+  // .eq('owner_id', user.id)가 실제로 필요하다(app/(app)/wardrobe/page.tsx 주석 참고) —
+  // garments_select RLS가 "공개 옷장 주인의 옷"도 허용해서, 이 필터 없인 다른 공개 옷장의
+  // considering 아이템까지 섞여 들어올 수 있다. getUser()와 병렬로 보낼 수 없는 이유이기도 하다.
   const { data: garments } = await supabase
     .from('garments')
     .select('id, name, brand, image_url, price, last_known_price, analyses(verdict, created_at)')

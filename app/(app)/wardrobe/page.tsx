@@ -8,8 +8,6 @@ import { CATEGORY_LABELS, type Category } from '@/lib/types'
 
 type Props = { searchParams: Promise<{ category?: string }> }
 
-// RLS의 garments_select 정책이 owner_id = auth.uid() 행만 돌려주므로,
-// 여기서 .eq('owner_id', user.id)를 빼도 안전하지만 쿼리 의도를 명확히 하려고 남겨둔다.
 export default async function WardrobePage({ searchParams }: Props) {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -17,6 +15,10 @@ export default async function WardrobePage({ searchParams }: Props) {
 
   const { category } = await searchParams
 
+  // .eq('owner_id', user.id)는 RLS와 중복이 아니라 여기서 실제로 필요하다 — garments_select
+  // 정책은 "내 옷" 또는 "공개 옷장 주인의 옷"을 둘 다 허용해서(0002_rls.sql), 이 필터를 빼면
+  // 공개 옷장을 가진 다른 사용자의 옷까지 내 옷장 목록에 섞여 들어온다. 그래서 user를 먼저
+  // 확인한 뒤에야 이 쿼리를 보낼 수 있고, getUser()와 병렬로 보낼 수 없다.
   let query = supabase
     .from('garments')
     .select('id, name, brand, price, image_url, category, color_option, size_option, rating')
