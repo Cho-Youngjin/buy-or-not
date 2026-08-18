@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { createServerSupabase } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -19,22 +19,15 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  // 로그인 사용자의 테마를 서버에서 미리 읽어 <html>에 반영한다 — 첫 페인트부터 맞는
-  // 테마가 적용되어 깜빡임(FOUC)이 없다. 'system'이거나 비로그인 방문자면 data-theme을
-  // 아예 안 붙여, globals.css의 media query가 OS 설정을 그대로 따르게 둔다.
-  const supabase = await createServerSupabase();
-  const { data: { user } } = await supabase.auth.getUser();
-  let dataTheme: "light" | "dark" | undefined;
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("theme")
-      .eq("id", user.id)
-      .single();
-    if (profile?.theme === "light" || profile?.theme === "dark") {
-      dataTheme = profile.theme;
-    }
-  }
+  // 테마를 DB가 아니라 쿠키에서 읽는다. 예전엔 여기서 auth.getUser() + profiles 조회를 했는데,
+  // 이 앱의 모든 라우트가 완전히 동적이라 페이지를 이동할 때마다 루트 레이아웃이 매번 새로
+  // 실행되면서 그 Supabase 왕복이 매 네비게이션마다 추가로 발생했다 — app/(app)/layout.tsx가
+  // "레이아웃에서 getUser()를 부르면 화면마다 Auth 서버 왕복이 두 번씩 생긴다"며 일부러 피해온
+  // 바로 그 문제를 루트 레이아웃에서 다시 만든 것이었다. 쿠키 읽기는 네트워크 호출이 없다 —
+  // ThemeToggle이 선택할 때마다 DB와 쿠키를 함께 갱신해 기기 간 동기화는 그대로 유지한다.
+  const cookieStore = await cookies();
+  const theme = cookieStore.get("theme")?.value;
+  const dataTheme = theme === "light" || theme === "dark" ? theme : undefined;
 
   return (
     <html
