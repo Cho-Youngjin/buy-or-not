@@ -1,5 +1,6 @@
 import { Type } from '@google/genai'
 import { getGeminiClient, GEMINI_MODEL } from '@/lib/gemini/client'
+import { VERDICT_CAUTION_MAX } from '@/lib/fit/rules'
 import type { AiTags } from '@/lib/ai/tagger'
 import type { MatchSeverity } from '@/lib/verdict'
 
@@ -9,6 +10,9 @@ export type AdviceInput = {
   deviationSummary: { key: string; excess: number; severity: string }[]
   candidatePrice: number | null
   avgPrice: number | null
+  /** lib/verdict.ts에 넘기는 값과 같아야 한다 — Gemini 호출 전에 app/api/analyze/route.ts가 이미 계산해둔 값. */
+  fitScore: number
+  hasFatalViolation: boolean
 }
 
 export type AdviceResult = {
@@ -32,6 +36,13 @@ const ADVICE_SCHEMA = {
 }
 
 function buildPrompt(input: AdviceInput): string {
+  // fitScore는 match_severity(Gemini가 매기는 값, 최소 패널티 0)와 합산되기 전 값이라, 이 값만으로도
+  // 이미 caution 상한을 넘는다면 스타일이 아무리 좋아도 최종 판정은 skip으로 확정된다(lib/verdict.ts
+  // decideVerdict 참고). Gemini가 이 사실을 모른 채 summary를 낙관적으로 시작하는 걸 막으려고
+  // 이미 계산된 이 신호를 프롬프트에 그대로 알려준다 — Gemini가 판정을 내리는 게 아니라,
+  // 이미 난 판정과 글의 톤이 모순되지 않게 하는 것뿐이다.
+  const likelySkip = input.hasFatalViolation || input.fitScore > VERDICT_CAUTION_MAX
+
   return [
     '아래는 이미 계산된 실측 편차 리포트와 스타일 태그다.',
     '숫자를 다시 계산하거나 반박하지 말고, 주어진 값을 한국어로 자연스럽게 설명해라.',
@@ -40,6 +51,9 @@ function buildPrompt(input: AdviceInput): string {
     `실측 편차 리포트: ${JSON.stringify(input.deviationSummary)}`,
     `후보 가격: ${input.candidatePrice ?? '알 수 없음'}, 옷장 같은 카테고리 평균가: ${input.avgPrice ?? '알 수 없음'}`,
     'match_severity는 스타일·색상 조화가 얼마나 잘 맞는지를 ok/warn/bad 3단계로만 판단해라.',
+    likelySkip
+      ? '실측 편차만으로 이미 비추천(skip) 판정이 확정적이다(스타일·가격이 아무리 좋아도 바뀌지 않는다). summary는 이 실측 문제를 첫 문장에서 분명히 언급하고 신중한 톤으로 써라. 스타일·가격 장점이 있어도 "그럼에도 불구하고" 식으로 뒤에 부차적으로만 붙이고, "완벽하게 어울린다"·"훌륭하다" 같은 무조건적 칭찬으로 summary를 시작하지 마라.'
+      : '실측 편차는 감내할 만한 수준이다. summary에 스타일·가격 장점을 자연스럽게 담아도 된다.',
   ].join('\n')
 }
 

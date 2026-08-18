@@ -92,6 +92,8 @@ export async function POST(request: Request) {
     deviationSummary: report.fields.map((f) => ({ key: f.key, excess: f.excess, severity: f.severity })),
     candidatePrice: candidateGarment?.price ?? null,
     avgPrice: profile.avgPrice,
+    fitScore: report.fitScore,
+    hasFatalViolation: report.hasFatalViolation,
   })
 
   // advice가 null이면(Gemini 호출·재시도 모두 실패) match_penalty=0으로 fit_score만으로
